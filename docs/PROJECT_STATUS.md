@@ -1,6 +1,6 @@
 # Project status
 
-Updated: 2026-10-25
+Updated: 2026-10-26
 
 ## Completed
 
@@ -8,8 +8,9 @@ Updated: 2026-10-25
 - Qwen Coder uploaded the first bilingual vanilla-JS PWA scaffold to `main`.
 - First review targets `f9d42bab2c4ae2264914a45683debb4f06e7b347`.
 - Corrections and SQL merged into `main` through PR #2 (merge `c5a6880`).
-- Next Qwen Coder task is defined in `docs/QWEN_NEXT_TASK.md`: real Supabase
-  adapter with explicit backend selection, Auth/profile recovery, and safe RPCs.
+- PR #3 was a zero-file merge and added no browser integration. The local-only
+  Qwen export check commit was never uploaded. Development is now maintained
+  directly by Codex with the project owner.
 - Initial `supabase/schema.sql`: seven RLS-protected tables, scoped grants,
   profile completion, atomic acceptance, cancellation/release, passenger-only
   completion with exactly-once trip counter, safe contacts, admin approval/blocking.
@@ -21,7 +22,8 @@ Updated: 2026-10-25
 
 ## Decisions
 
-- Main: incoming unreviewed Qwen Coder work. Release: verified code only.
+- `main`: active development. `release`: reserved for reviewed deployable code;
+  it has not been created yet. Cloudflare deployment remains gated by owner approval.
 - Static HTML/CSS/JS, Supabase Auth/PostgreSQL/RLS, later Cloudflare Pages.
 - Zero budget; cash payments, no maps/SMS/paid APIs in the pilot.
 - No secrets, database dumps, or real personal data in Git.
@@ -38,8 +40,9 @@ Updated: 2026-10-25
 1. Supabase project selected and connected through the plugin; the initial schema
    was already installed. Cloud SQL role/access checks passed; see
    `docs/SUPABASE_LIVE_CHECK.md`. Do not rerun the initial schema.
-2. Qwen Coder implements `docs/QWEN_NEXT_TASK.md` from latest `main` and uploads
-   to `main`; engineering review follows. Keep session persistence disabled.
+2. Implement the real browser adapter in a `codex/` branch, preserving the
+   `window.JAILAU_API` contract, with explicit demo/real selection and no mock
+   fallback after real errors. Keep session persistence disabled.
 3. Test Supabase Auth/PostgREST, two simultaneous acceptance/completion calls,
    blocked sessions, and recovery/ownership of phone-based accounts.
 4. Verify village geography and calculate straight-line distance from coordinates.
@@ -57,6 +60,11 @@ Updated: 2026-10-25
   `node --test tests/*.test.cjs` and `node tests/audit.cjs`.
 - Supabase is connected. Existing schema inspected; disposable cloud SQL tests
   were rolled back. Auth accounts, app users, and requests remain empty.
+- The selected Supabase project has seven application tables (all RLS enabled),
+  one settings row, no Auth users, zones, villages, requests, Edge Functions,
+  development branches, or migration-history entries. Keep its installed schema.
+- Qwen handoff instructions removed from the active repository; historical
+  commits and PRs remain available for provenance.
 - Real Auth/HTTP integration and simultaneous transaction checks remain pending.
 - Site remains demo-only.
 - Cloudflare is not configured; nothing has been published.
