@@ -102,6 +102,11 @@ test('PostgreSQL schema: roles, RLS, contacts, lifecycle and exactly-once counte
     await as(id(23),'select public.release_request($1)',[r3]);
     await as(id(21),'select public.cancel_request($1)',[r3]);
     await as(id(23),'select public.accept_request($1)',[r2]);
+    const future = (await as(id(21),`select public.create_request(
+      'city_to_village',$1,'Test landmark','scheduled',now()+interval '3 hours',4,null,true,'') as id`,[id(11)]))[0].id;
+    await as(id(23),'select public.accept_request($1)',[future]); // later full car fits
+    await as(id(23),'select public.release_request($1)',[future]);
+    await as(id(21),'select public.cancel_request($1)',[future]);
     await as(id(28),"select public.admin_set_driver_status($1,'blocked')",[id(23)]);
     assert.equal((await as(id(23),"select public.list_requests('driver')")).length,0);
     assert.equal((await as(id(23),'select * from public.requests')).length,0);
