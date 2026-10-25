@@ -14,9 +14,11 @@ through the connected Supabase project. Do not reapply it.
   client, enter its client ID/secret directly in the Supabase dashboard, and enable
   the provider. Do not share the Google secret, database password, or service-role
   key in chat or GitHub.
-- In Authentication → URL Configuration, allow the exact local test origin/URL and,
-  later, the approved production `.pages.dev` URL for email and OAuth redirects.
-  Keep the redirect allowlist narrow. Do not add an unapproved production site.
+- Authentication → URL Configuration currently has Site URL
+  `http://localhost:3000` and no additional Redirect URLs. For local testing,
+  serve on port 3000 and open **`http://localhost:3000/`**, not `127.0.0.1`.
+  Before any approved production deployment, allow the exact `.pages.dev` URL
+  for email and OAuth redirects. Keep the allowlist narrow.
 - Phone Auth is not used. The user enters a contact number after email/Google
   login, confirms its spelling in the UI, and can edit it in Profile. The unique
   `users.phone` constraint prevents duplicate numbers; it does **not** prove
@@ -45,7 +47,7 @@ through the connected Supabase project. Do not reapply it.
 
 ## Owner actions before real-user pilot
 
-1. Configure a test redirect URL in Supabase Authentication → URL Configuration.
+1. Run the site at `http://localhost:3000/` so email confirmation returns to it.
 2. Register a test email account, follow the confirmation link, and enter a
    contact number. Check that Profile displays the number and can change it.
 3. Create verified zones/villages through an admin account. Promote only your

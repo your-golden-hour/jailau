@@ -42,14 +42,16 @@ the owner's explicit approval.
 - Supabase has zero real users, zones, villages, requests. Pilot rides cannot be
   booked until verified geography and an admin are created. No mock geography
   should be copied into cloud without verification.
-- Cloud Auth/email redirect configuration and a real email signup/login walkthrough
-  are still pending. OAuth also needs owner setup. No site was published.
+- Supabase Site URL is `http://localhost:3000` with no extra redirect URLs.
+  A real email signup/login walkthrough is still pending. Production URL must be
+  allowlisted only after owner-approved deployment. OAuth needs owner setup.
+  No site was published.
 - Terms/privacy draft exists, but legal consultation is still needed before real
   passengers. License choice is still pending.
 
 ## Next checks
 
-1. Owner configures allowed redirect URL in Supabase, creates a disposable email
+1. Owner serves the site at `http://localhost:3000/`, creates a disposable email
    test account, and confirms email. Verify profile flow and phone correction.
 2. Verify geography and create zones/villages, then admin approval of a test driver.
 3. Test two concurrent acceptances against live cloud, scheduling boundaries,
