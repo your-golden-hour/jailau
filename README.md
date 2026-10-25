@@ -1,11 +1,22 @@
-# Jailau
+# Жайлау
 
-Student pilot for taxi requests between Shymkent and nearby villages.
+Студенческий проект заявок на поездки между Шымкентом и сёлами. Сайт работает
+на русском и казахском языках. Сейчас это **демонстрация**: люди и поездки
+вымышленные, данные хранятся только в памяти вкладки и исчезают после обновления.
 
-Development is maintained in this repository. `main` is the active development branch;
-`release` will hold reviewed code for Cloudflare Pages when the real backend and
-launch checks are complete. Publishing requires owner approval.
+Откройте `index.html` через локальный веб-сервер, например из папки репозитория:
 
-The current browser app uses in-memory demo data. The Supabase database schema is
-installed, but the browser has not been connected to it yet. See
-`docs/PROJECT_STATUS.md` for the current state and next steps.
+```text
+python -m http.server 8766
+```
+
+Затем перейдите на `http://localhost:8766/` и нажмите «пассажир», «водитель»
+или «админ» в блоке демо-входа. Открывать файл напрямую через `file://` не
+рекомендуется: так не работает офлайн-кэш приложения.
+
+`main` — рабочая ветка; `release` будет содержать только проверенный код для
+Cloudflare Pages. Публикация — только после согласия владельца. Схема Supabase
+установлена, но браузер к ней пока не подключён. Не используйте демо-вход для
+реальных людей или личных данных.
+
+Текущее состояние и дальнейшие шаги: [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).

@@ -29,6 +29,16 @@
       nav: null,
       render: function (c) { SCREENS.auth.render(c, { mode: "login" }); }
     },
+    "#/terms": {
+      public: true,
+      nav: null,
+      render: function (c) {
+        c.innerHTML = '<div class="terms-page"><a class="text-link" href="' + (currentUser ? homeHashFor(currentUser) : '#/login') + '">← ' + esc(t("nav_home")) + '</a>' +
+          '<h1 class="screen-title">' + esc(t("terms_title")) + '</h1>' +
+          '<p class="terms-intro">' + esc(t("terms_updated")) + '</p>' +
+          '<div class="card terms-copy"><p>' + esc(t("terms_service")) + '</p><p>' + esc(t("terms_payment")) + '</p><p>' + esc(t("terms_data")) + '</p><p>' + esc(t("terms_warning")) + '</p><p>' + esc(t("terms_demo")) + '</p></div></div>';
+      }
+    },
     "#/passenger/home": {
       roles: ["passenger"],
       nav: "home",
@@ -72,19 +82,19 @@
 
   var NAV_ITEMS = {
     passenger: [
-      { hash: "#/passenger/home", key: "nav_home", icon: "🏠", id: "home" },
-      { hash: "#/passenger/new-request", key: "nav_new_request", icon: "➕", id: "new" },
-      { hash: "#/passenger/my-requests", key: "nav_my_requests", icon: "🧾", id: "mine" },
-      { hash: "#logout", key: "nav_logout", icon: "🚪", id: "logout" }
+      { hash: "#/passenger/home", key: "nav_home", icon: "⌂", id: "home" },
+      { hash: "#/passenger/new-request", key: "nav_new_request", icon: "+", id: "new" },
+      { hash: "#/passenger/my-requests", key: "nav_my_requests", icon: "▤", id: "mine" },
+      { hash: "#logout", key: "nav_logout", icon: "↗", id: "logout" }
     ],
     driver: [
-      { hash: "#/driver/feed", key: "nav_feed", icon: "🛰️", id: "feed" },
-      { hash: "#/driver/my-requests", key: "nav_driver_requests", icon: "🚗", id: "mine-driver" },
-      { hash: "#logout", key: "nav_logout", icon: "🚪", id: "logout" }
+      { hash: "#/driver/feed", key: "nav_feed", icon: "≡", id: "feed" },
+      { hash: "#/driver/my-requests", key: "nav_driver_requests", icon: "▤", id: "mine-driver" },
+      { hash: "#logout", key: "nav_logout", icon: "↗", id: "logout" }
     ],
     admin: [
-      { hash: "#/admin", key: "nav_admin", icon: "🛠️", id: "admin" },
-      { hash: "#logout", key: "nav_logout", icon: "🚪", id: "logout" }
+      { hash: "#/admin", key: "nav_admin", icon: "▦", id: "admin" },
+      { hash: "#logout", key: "nav_logout", icon: "↗", id: "logout" }
     ]
   };
 
@@ -130,7 +140,7 @@
       return;
     }
     // Already logged in but on login page → go home
-    if (def.public && currentUser) {
+    if (hash === "#/login" && currentUser) {
       window.location.hash = homeHashFor(currentUser);
       return;
     }
@@ -145,9 +155,12 @@
       SCREENS.driver.clearTimers();
     }
 
+    var freshScreen = elScreen.cloneNode(false);
+    elScreen.replaceWith(freshScreen);
+    elScreen = freshScreen;
     elScreen.classList.toggle("no-nav", !!def.public);
+    elScreen.classList.toggle("auth-screen", hash === "#/login");
     renderNav(def.nav);
-    elScreen.innerHTML = "";
     try {
       def.render(elScreen);
     } catch (err) {
@@ -194,6 +207,8 @@
       currentUser = null;
       window.location.hash = "#/login";
       route();
+    }).catch(function () {
+      toast(t("error_generic"), "error");
     });
   }
 
@@ -221,6 +236,7 @@
 
     window.addEventListener("hashchange", route);
     window.I18N.applyAttributes(document);
+    document.getElementById("lang-toggle").textContent = window.I18N.getLang() === "ru" ? "KZ" : "RU";
 
     API.getCurrentUser().then(function (user) {
       currentUser = user;
@@ -228,6 +244,11 @@
         window.location.hash = user ? homeHashFor(user) : "#/login";
       }
       route();
+    }).catch(function () {
+      currentUser = null;
+      window.location.hash = "#/login";
+      route();
+      toast(t("error_generic"), "error");
     });
 
     bootstrapped = true;

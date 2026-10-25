@@ -30,27 +30,39 @@
     bindStaticHandlers(container, mode);
 
     zonesPromise.then(function (zones) {
-      if (mode === "register" && zones) fillZoneSelect(container, zones);
+      if (container.isConnected && mode === "register" && zones) fillZoneSelect(container, zones);
+    }).catch(function () {
+      if (container.isConnected) window.JAILAU_APP.toast(t("error_generic"), "error");
     });
   }
 
   function buildShell(mode) {
     var html = '' +
-      '<div class="auth-card">' +
-        '<h1 class="screen-title">' + esc(t("app_name")) + '</h1>' +
-        '<p class="screen-subtitle">' + esc(t("app_tagline")) + ' · ' + esc(t("auth_welcome")) + '</p>' +
-
-        '<div class="auth-tabs">' +
-          '<button type="button" class="auth-tab' + (mode === "login" ? " active" : "") + '" data-mode="login">' + esc(t("tab_login")) + '</button>' +
-          '<button type="button" class="auth-tab' + (mode === "register" ? " active" : "") + '" data-mode="register">' + esc(t("tab_register")) + '</button>' +
-        '</div>' +
-
-        '<form id="auth-form" class="card" novalidate autocomplete="on">' +
-          (mode === "register" ? registerFields() : loginFields()) +
-        '</form>' +
-
-        demoAccountsBlock() +
-        '<p class="small muted text-center mt-16">' + esc(t("legal_disclaimer")) + '</p>' +
+      '<div class="auth-layout">' +
+        '<section class="auth-hero" aria-label="' + esc(t("app_tagline")) + '">' +
+          '<div class="auth-hero-inner">' +
+            '<p class="eyebrow">' + esc(t("hero_eyebrow")) + '</p>' +
+            '<h1>' + esc(t("hero_title")) + '</h1>' +
+            '<p class="hero-description">' + esc(t("hero_description")) + '</p>' +
+            '<div class="hero-route" aria-hidden="true"><span class="route-point">●</span><span class="route-track"></span><span class="route-point route-destination">◆</span></div>' +
+            '<ol class="hero-steps"><li>' + esc(t("hero_step_one")) + '</li><li>' + esc(t("hero_step_two")) + '</li><li>' + esc(t("hero_step_three")) + '</li></ol>' +
+          '</div>' +
+        '</section>' +
+        '<section class="auth-panel"><div class="auth-card">' +
+          '<p class="eyebrow panel-eyebrow">' + esc(t("app_name")) + '</p>' +
+          '<h2 class="screen-title">' + esc(t(mode === "login" ? "login_title" : "register_title")) + '</h2>' +
+          '<p class="screen-subtitle">' + esc(t("auth_welcome")) + '</p>' +
+          '<div class="auth-tabs" role="tablist">' +
+            '<button type="button" role="tab" aria-selected="' + (mode === "login") + '" class="auth-tab' + (mode === "login" ? " active" : "") + '" data-mode="login">' + esc(t("tab_login")) + '</button>' +
+            '<button type="button" role="tab" aria-selected="' + (mode === "register") + '" class="auth-tab' + (mode === "register" ? " active" : "") + '" data-mode="register">' + esc(t("tab_register")) + '</button>' +
+          '</div>' +
+          '<form id="auth-form" class="card" novalidate autocomplete="on">' +
+            (mode === "register" ? registerFields() : loginFields()) +
+          '</form>' +
+          (CFG.DEMO_MODE ? demoAccountsBlock() : "") +
+          '<a class="text-link terms-link" href="#/terms">' + esc(t("terms_link")) + '</a>' +
+          '<p class="small muted legal-line">' + esc(t("legal_disclaimer")) + '</p>' +
+        '</div></section>' +
       '</div>';
     return html;
   }
@@ -122,23 +134,20 @@
   function demoAccountsBlock() {
     var a = CFG.DEMO_ACCOUNTS;
     return '' +
-      '<div class="card">' +
-        '<div class="card-title small">' + esc(t("demo_accounts_hint")) + '</div>' +
-        '<ul class="card-list">' +
-          '<li>' + esc(t("demo_acc_passenger")) + ': <code>' + esc(a.passenger.phone) + '</code></li>' +
-          '<li>' + esc(t("demo_acc_driver")) + ': <code>' + esc(a.driver.phone) + '</code></li>' +
-          '<li>' + esc(t("demo_acc_admin")) + ': <code>' + esc(a.admin.phone) + '</code></li>' +
-        '</ul>' +
-        '<div class="btn-group">' +
+      '<div class="demo-chooser">' +
+        '<div class="demo-chooser-title"><span class="demo-dot"></span>' + esc(t("demo_choose_role")) + '</div>' +
+        '<div class="demo-role-grid">' +
           quickBtn("passenger") + quickBtn("driver") + quickBtn("admin") +
         '</div>' +
+        '<p class="demo-caption">' + esc(t("demo_accounts_hint")) + '</p>' +
       '</div>';
   }
 
   function quickBtn(role) {
     var labelKey = { passenger: "demo_acc_passenger", driver: "demo_acc_driver", admin: "demo_acc_admin" }[role];
-    return '<button type="button" class="btn btn-ghost btn-sm" data-quick-login="' + role + '">' +
-      esc(t("quick_login")) + ' ' + esc(t(labelKey)) + '</button>';
+    var icon = { passenger: "→", driver: "↗", admin: "⌘" }[role];
+    return '<button type="button" class="demo-role" data-quick-login="' + role + '"><span class="demo-role-icon">' + icon + '</span><span>' +
+      esc(t(labelKey)) + '</span></button>';
   }
 
   /* ---------------- Handlers ---------------- */

@@ -73,6 +73,24 @@ test('rendered passenger-controlled text cannot become executable markup',async(
   } finally {dom.window.close();}
 });
 
+test('request form refuses to publish a phone number in public text',async()=>{
+  const dom=load(),w=dom.window,api=w.JAILAU_API;
+  try {
+    const a=w.JAILAU_CONFIG.DEMO_ACCOUNTS;
+    await api.signIn(a.passenger.phone,a.passenger.password);
+    const before=(await api.listMyRequests()).length;
+    const c=w.document.getElementById('screen');
+    w.JAILAU_SCREENS.passenger.renderNewRequest(c);
+    await new Promise(resolve=>setImmediate(resolve));
+    const form=c.querySelector('#nr-form');
+    assert.ok(form);
+    form.querySelector('#nr-comment').value='Позвоните +7 701 123 45 67';
+    form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+    assert.ok(form.querySelector('[data-field="comment"].invalid'));
+    assert.equal((await api.listMyRequests()).length,before);
+  } finally {dom.window.close();}
+});
+
 test('both dictionaries contain all literal UI and error keys',()=>{
   const dom=load(),w=dom.window;
   try {

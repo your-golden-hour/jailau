@@ -60,24 +60,33 @@
 
         var villageId = user.village_id || (zones[0] && zones[0].villages[0] ? zones[0].villages[0].id : null);
 
+        if (!container.isConnected) return;
         container.innerHTML = '' +
-          '<h1 class="screen-title">' + esc(t("ph_home_hello", { name: user.name })) + '</h1>' +
-          '<p class="screen-subtitle">' + esc(t("ph_home_subtitle")) + '</p>' +
+          '<section class="home-hero">' +
+            '<div class="home-hero-copy"><p class="eyebrow">' + esc(t("home_eyebrow")) + '</p>' +
+              '<p class="home-hello">' + esc(t("ph_home_hello", { name: user.name })) + '</p>' +
+              '<h1 class="screen-title">' + esc(t("home_ready")) + '</h1>' +
+              '<p class="home-lead">' + esc(t("home_lead")) + '</p>' +
+              '<a class="btn btn-secondary home-hero-cta" href="#/passenger/new-request">' + esc(t("ph_create_request_cta")) + ' <span aria-hidden="true">↗</span></a>' +
+            '</div><div class="home-hero-art" aria-hidden="true"><span class="sun"></span><span class="hill hill-back"></span><span class="hill hill-front"></span><span class="road"></span></div>' +
+          '</section>' +
 
-          '<div class="card">' +
+          '<div class="home-grid"><section class="home-main">' +
+          '<div class="card village-picker">' +
             '<div class="form-field" style="margin-bottom:0">' +
               '<label class="form-label" for="home-village">' + esc(t("ph_village_label")) + '</label>' +
               '<select class="form-select" id="home-village"></select>' +
             '</div>' +
           '</div>' +
-
-          '<button id="btn-new-request" class="btn btn-primary btn-block">' + esc(t("ph_create_request_cta")) + '</button>' +
-
-          '<h2 class="section-title">' + esc(t("ph_online_drivers")) + '</h2>' +
+          '<div class="section-heading"><div><p class="eyebrow">' + esc(t("ph_village_label")) + '</p><h2 class="section-title">' + esc(t("ph_online_drivers")) + '</h2></div><span class="live-marker" aria-hidden="true"></span></div>' +
           '<div id="drivers-list"><p class="muted">' + esc(t("loading")) + '</p></div>' +
-
-          '<div class="privacy-note">🔒 ' + esc(t("ph_privacy_note")) + '</div>' +
-          '<p class="small muted text-center mt-16">' + esc(t("legal_disclaimer")) + '</p>';
+          '</section><aside class="home-aside">' +
+            '<div class="how-card"><p class="eyebrow">ЖАЙЛАУ</p><h2>' + esc(t("home_how_title")) + '</h2>' +
+              '<ol><li><span>01</span>' + esc(t("home_step_one")) + '</li><li><span>02</span>' + esc(t("home_step_two")) + '</li><li><span>03</span>' + esc(t("home_step_three")) + '</li></ol>' +
+              '<a class="btn btn-primary btn-block" href="#/passenger/new-request">' + esc(t("ph_create_request_cta")) + '</a></div>' +
+            '<div class="privacy-note">' + esc(t("ph_privacy_note")) + '</div>' +
+          '</aside></div>' +
+          '<footer class="page-footer"><span>' + esc(t("legal_disclaimer")) + '</span><a href="#/terms">' + esc(t("terms_link")) + '</a></footer>';
 
         // Village select
         var sel = container.querySelector("#home-village");
@@ -103,28 +112,27 @@
             }
             box.innerHTML = drivers.map(function (d) {
               return '' +
-                '<div class="card">' +
+                '<div class="card driver-card">' +
                   '<div class="card-row">' +
-                    '<div>' +
-                      '<div class="card-title">👤 ' + esc(d.name) + '</div>' +
+                    '<div class="driver-identity"><span class="driver-avatar" aria-hidden="true">' + esc(String(d.name || "?").slice(0, 1).toUpperCase()) + '</span><div>' +
+                      '<div class="card-title">' + esc(d.name) + '</div>' +
                       '<div class="card-meta">' + esc(t("ph_driver_card", { brand: esc(d.car_brand), seats: d.seats })) + '</div>' +
-                      '<div class="card-meta">' + esc(t("ph_driver_since", { time: fmtTimeOnly(d.online_since) })) + '</div>' +
-                    '</div>' +
+                    '</div></div>' +
                     '<span class="badge badge-online">● ' + esc(t("driver_online")) + '</span>' +
                   '</div>' +
+                  '<div class="driver-since">' + esc(t("ph_driver_since", { time: fmtTimeOnly(d.online_since) })) + '</div>' +
                 '</div>';
-            }).join("");
+            }).join("") + '<p class="small muted">' + esc(t("ph_privacy_note")) + '</p>';
           });
         }
 
         sel.addEventListener("change", function () {
-          API.setUserVillage(sel.value).then(function () { loadDrivers(sel.value); });
+          API.setUserVillage(sel.value).then(function () { loadDrivers(sel.value); }).catch(function () {
+            window.JAILAU_APP.toast(t("error_generic"), "error");
+          });
         });
         loadDrivers(villageId);
 
-        container.querySelector("#btn-new-request").addEventListener("click", function () {
-          window.location.hash = "#/passenger/new-request";
-        });
       })
       .catch(function () {
         container.innerHTML = '<div class="empty-state">' + esc(t("error_generic")) + '</div>';
@@ -183,9 +191,10 @@
             '</div>' +
 
             // Pickup spot
-            '<div class="form-field">' +
+            '<div class="form-field" data-field="pickup_spot">' +
               '<label class="form-label" for="nr-pickup">' + esc(t("nr_pickup")) + '</label>' +
-              '<input class="form-input" id="nr-pickup" name="pickup_spot" type="text" data-i18n-placeholder="nr_pickup_placeholder">' +
+              '<input class="form-input" id="nr-pickup" name="pickup_spot" type="text" maxlength="120" data-i18n-placeholder="nr_pickup_placeholder">' +
+              '<div class="form-error"></div>' +
             '</div>' +
 
             // When
@@ -235,9 +244,10 @@
             '</div>' +
 
             // Comment
-            '<div class="form-field">' +
+            '<div class="form-field" data-field="comment">' +
               '<label class="form-label" for="nr-comment">' + esc(t("nr_comment")) + '</label>' +
-              '<textarea class="form-textarea" id="nr-comment" name="comment" data-i18n-placeholder="nr_comment_placeholder"></textarea>' +
+              '<textarea class="form-textarea" id="nr-comment" name="comment" maxlength="500" data-i18n-placeholder="nr_comment_placeholder"></textarea>' +
+              '<div class="form-hint">' + esc(t("terms_warning")) + '</div><div class="form-error"></div>' +
             '</div>' +
 
             '<button class="btn btn-primary btn-block" type="submit">' + esc(t("nr_submit")) + '</button>' +
@@ -307,6 +317,9 @@
           var dateVal = form.querySelector('[name="date"]').value;
           var timeVal = form.querySelector('[name="time"]').value;
           var priceVal = parseInt(form.querySelector('[name="price"]').value, 10);
+          var pickupSpot = form.querySelector('[name="pickup_spot"]').value.trim();
+          var comment = form.querySelector('[name="comment"]').value.trim();
+          var publicPhonePattern = /(?:\+7|8)[\s()-]*(?:\d[\s()-]*){10}/;
 
           function mark(field, key) {
             var w = form.querySelector('[data-field="' + field + '"]');
@@ -316,20 +329,25 @@
 
           if (!village_id) mark("village_id", "err_village_required");
           if (!(seats >= 1 && seats <= 4)) mark("seats", "err_seats_range");
-          if (state.when === "scheduled" && (!dateVal || !timeVal)) mark("date", "err_datetime_required");
+          if (state.when === "scheduled" && (!dateVal || !timeVal || !(new Date(dateVal + "T" + timeVal).getTime() > Date.now()))) mark("date", "err_datetime_required");
           if (state.priceMode === "fixed" && !(priceVal > 0)) mark("price", "err_price_invalid");
+          if (publicPhonePattern.test(pickupSpot)) mark("pickup_spot", "err_public_phone");
+          if (publicPhonePattern.test(comment)) mark("comment", "err_public_phone");
           if (!ok) return;
+
+          var submitButton = form.querySelector('[type="submit"]');
+          submitButton.disabled = true;
 
           var payload = {
             direction: direction,
             village_id: village_id,
-            pickup_spot: form.querySelector('[name="pickup_spot"]').value.trim(),
+            pickup_spot: pickupSpot,
             when: state.when,
             datetime: state.when === "scheduled" ? new Date(dateVal + "T" + timeVal).toISOString() : null,
             seats: seats,
             negotiable: state.priceMode === "negotiable",
             price: state.priceMode === "fixed" ? priceVal : null,
-            comment: form.querySelector('[name="comment"]').value.trim()
+            comment: comment
           };
 
           API.createRequest(payload).then(function () {
@@ -338,6 +356,8 @@
           }).catch(function (err) {
             var key = err && err.message ? err.message : "error_generic";
             window.JAILAU_APP.toast(t(key) !== key ? t(key) : t("error_generic"), "error");
+          }).finally(function () {
+            submitButton.disabled = false;
           });
         });
       })

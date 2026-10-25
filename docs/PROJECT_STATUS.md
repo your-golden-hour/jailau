@@ -19,6 +19,15 @@ Updated: 2026-10-26
 - Six local automated tests pass. Test dependencies are dev-only.
 - GitHub secret scanning and push protection are enabled; no alerts at review time.
 - `.gitignore` and GitHub Actions checks added.
+- Website redesign on `codex/website-rebuild`: responsive entry page, passenger
+  dashboard, refined forms/cards/navigation, bilingual draft terms/privacy page,
+  and clearer demo-role entry. Existing `icon.svg` logo is unchanged.
+- Public-text request fields now warn and reject phone-number patterns before
+  demo submission. Navigation detaches stale async screens; bootstrap/logout
+  errors are handled. Service-worker cache version bumped for the new shell.
+- Seven local tests pass, including new public-field phone validation. Browser
+  walkthrough covered passenger request, driver feed, admin view, Kazakh UI,
+  and terms page. This branch has not yet been promoted to `release`.
 
 ## Decisions
 
@@ -32,6 +41,8 @@ Updated: 2026-10-26
 - `km_to_city` means straight-line km; apply the 1.3 road estimate once.
 - `kz` remains the JSON/dictionary key; `kk` is the HTML language tag.
 - No real data seeds. Schema is a one-time initial migration for a new project.
+- The refreshed interface still uses only demo data. It does not silently
+  collect real passenger details or switch to Supabase on its own.
 - Schema RPCs return IDs; the future browser adapter loads authorized card JSON.
 - License still pending the owner's choice.
 
@@ -40,14 +51,18 @@ Updated: 2026-10-26
 1. Supabase project selected and connected through the plugin; the initial schema
    was already installed. Cloud SQL role/access checks passed; see
    `docs/SUPABASE_LIVE_CHECK.md`. Do not rerun the initial schema.
-2. Implement the real browser adapter in a `codex/` branch, preserving the
+2. Decide free Auth policy before real registration: SMS confirmation needs a
+   provider and may cost money. Candidate pilot modes are demo-only, email login
+   plus phone as profile data, or manually invited phone accounts. Do not disable
+   verification or call an unverified number confirmed without owner consent.
+3. Implement the real browser adapter in a `codex/` branch, preserving the
    `window.JAILAU_API` contract, with explicit demo/real selection and no mock
    fallback after real errors. Keep session persistence disabled.
-3. Test Supabase Auth/PostgREST, two simultaneous acceptance/completion calls,
+4. Test Supabase Auth/PostgREST, two simultaneous acceptance/completion calls,
    blocked sessions, and recovery/ownership of phone-based accounts.
-4. Verify village geography and calculate straight-line distance from coordinates.
-5. Finish PWA installability, real phone/slow-network checks, async route handling.
-6. Add terms/privacy and settle data retention and account recovery for the pilot.
+5. Verify village geography and calculate straight-line distance from coordinates.
+6. Finish PWA installability, real phone/slow-network checks, data retention,
+   account recovery, and legal review of the draft terms/privacy before real users.
 7. Only then promote reviewed work to `release`, protect it, configure Cloudflare
    production=`release` and previews=None, and request owner approval to publish.
 
