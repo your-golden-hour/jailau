@@ -36,7 +36,7 @@
         c.innerHTML = '<div class="terms-page"><a class="text-link" href="' + (currentUser ? homeHashFor(currentUser) : '#/login') + '">← ' + esc(t("nav_home")) + '</a>' +
           '<h1 class="screen-title">' + esc(t("terms_title")) + '</h1>' +
           '<p class="terms-intro">' + esc(t("terms_updated")) + '</p>' +
-          '<div class="card terms-copy"><p>' + esc(t("terms_service")) + '</p><p>' + esc(t("terms_payment")) + '</p><p>' + esc(t("terms_data")) + '</p><p>' + esc(t("terms_warning")) + '</p><p>' + esc(t("terms_demo")) + '</p></div></div>';
+          '<div class="card terms-copy"><p>' + esc(t("terms_service")) + '</p><p>' + esc(t("terms_payment")) + '</p><p>' + esc(t("terms_data")) + '</p><p>' + esc(t("terms_warning")) + '</p><p>' + esc(t("terms_unverified")) + '</p>' + (window.JAILAU_CONFIG.DEMO_MODE ? '<p>' + esc(t("terms_demo")) + '</p>' : '') + '</div></div>';
       }
     },
     "#/passenger/home": {
@@ -238,13 +238,17 @@
     window.I18N.applyAttributes(document);
     document.getElementById("lang-toggle").textContent = window.I18N.getLang() === "ru" ? "KZ" : "RU";
 
-    API.getCurrentUser().then(function (user) {
+    Promise.resolve(window.JAILAU_API_READY).then(function () { return API.getCurrentUser(); }).then(function (user) {
       currentUser = user;
       if (!window.location.hash || !ROUTES[window.location.hash]) {
         window.location.hash = user ? homeHashFor(user) : "#/login";
       }
       route();
-    }).catch(function () {
+    }).catch(function (err) {
+      if (!window.JAILAU_CONFIG.DEMO_MODE && !window.JAILAU_REAL_BACKEND_READY) {
+        elScreen.innerHTML = '<div class="empty-state">' + esc(t(err && err.message === "err_config" ? "err_config" : "err_backend_unavailable")) + '</div>';
+        return;
+      }
       currentUser = null;
       window.location.hash = "#/login";
       route();

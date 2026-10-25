@@ -16,7 +16,7 @@ Updated: 2026-10-26
   completion with exactly-once trip counter, safe contacts, admin approval/blocking.
 - Data contract corrected to match passenger-only completion, straight-line km,
   the counter, SQL RPC results, and the retained demo mode.
-- Six local automated tests pass. Test dependencies are dev-only.
+- Local automated tests and database checks use dev-only dependencies.
 - GitHub secret scanning and push protection are enabled; no alerts at review time.
 - `.gitignore` and GitHub Actions checks added.
 - Website redesign on `codex/website-rebuild`: responsive entry page, passenger
@@ -25,9 +25,15 @@ Updated: 2026-10-26
 - Public-text request fields now warn and reject phone-number patterns before
   demo submission. Navigation detaches stale async screens; bootstrap/logout
   errors are handled. Service-worker cache version bumped for the new shell.
-- Seven local tests pass, including new public-field phone validation. Browser
-  walkthrough covered passenger request, driver feed, admin view, Kazakh UI,
+- Browser walkthrough covered passenger request, driver feed, admin view, Kazakh UI,
   and terms page. This branch has not yet been promoted to `release`.
+- Browser Supabase adapter added behind explicit `BACKEND: "supabase"`; its
+  default remains `demo`. It uses a locally bundled, integrity-checked official
+  Supabase JS v2.118.0 SDK, public project URL/publishable key, Auth for passwords,
+  and SQL RPCs for all request state changes. No secret/server key is in the repo.
+- Real-mode startup fails closed if configuration or SDK loading fails. Auth
+  sessions are memory-only. Adapter unit tests cover missing configuration and
+  RPC use; end-to-end cloud authentication is still untested.
 
 ## Decisions
 
@@ -43,7 +49,11 @@ Updated: 2026-10-26
 - No real data seeds. Schema is a one-time initial migration for a new project.
 - The refreshed interface still uses only demo data. It does not silently
   collect real passenger details or switch to Supabase on its own.
-- Schema RPCs return IDs; the future browser adapter loads authorized card JSON.
+- Schema RPCs return IDs; the browser adapter then loads authorized card JSON.
+- Owner approved unconfirmed phone+password registration for the test pilot.
+  This does not establish ownership of a number; phone recovery needs a separate
+  solution. The Supabase dashboard setting has NOT yet been changed because its
+  browser session requires owner sign-in.
 - License still pending the owner's choice.
 
 ## Next
@@ -51,16 +61,15 @@ Updated: 2026-10-26
 1. Supabase project selected and connected through the plugin; the initial schema
    was already installed. Cloud SQL role/access checks passed; see
    `docs/SUPABASE_LIVE_CHECK.md`. Do not rerun the initial schema.
-2. Decide free Auth policy before real registration: SMS confirmation needs a
-   provider and may cost money. Candidate pilot modes are demo-only, email login
-   plus phone as profile data, or manually invited phone accounts. Do not disable
-   verification or call an unverified number confirmed without owner consent.
-3. Implement the real browser adapter in a `codex/` branch, preserving the
-   `window.JAILAU_API` contract, with explicit demo/real selection and no mock
-   fallback after real errors. Keep session persistence disabled.
+2. Owner signs in to the Supabase dashboard; disable Confirm phone for the
+   explicitly approved test-only policy. Keep Auth abuse/rate limits enabled.
+   No credential needs to be sent to Codex.
+3. Add verified zones/villages and a safe account-recovery plan. Do not copy
+   the mock villages into the cloud; their geography is unverified.
 4. Test Supabase Auth/PostgREST, two simultaneous acceptance/completion calls,
    blocked sessions, and recovery/ownership of phone-based accounts.
 5. Verify village geography and calculate straight-line distance from coordinates.
+   Add UI pagination beyond 100 requests before a larger pilot.
 6. Finish PWA installability, real phone/slow-network checks, data retention,
    account recovery, and legal review of the draft terms/privacy before real users.
 7. Only then promote reviewed work to `release`, protect it, configure Cloudflare

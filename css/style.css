@@ -667,6 +667,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .demo-caption { font-size: 11px; color: var(--text-muted); margin-top: 10px; }
 .terms-link { display: inline-block; margin-top: 25px; font-size: 12px; }
 .legal-line { margin-top: 10px; line-height: 1.55; }
+.auth-warning { margin-top: 16px; border-radius: 11px; border: 1px solid #edd9aa; background: #fff7e3; color: #694f23; padding: 13px; font-size: 12px; }
 
 /* Passenger dashboard */
 .home-hero { border-radius: 24px; min-height: 276px; display: grid; grid-template-columns: minmax(0, 1fr) 33%; background: #174f3c; color: white; overflow: hidden; position: relative; margin-bottom: 28px; }

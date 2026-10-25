@@ -2,13 +2,13 @@
 
 This document defines the data model for **Jailau / Жайлау**, a free platform that
 connects passengers in villages near Shymkent with local taxi drivers. The frontend
-currently runs against an **in-memory mock API** (`js/api.js`). When the real backend
-(Supabase) is ready, implement exactly these entities, fields, relationships and
-visibility rules so the frontend can swap `js/api.js` internals without touching screens.
+currently runs against an **in-memory mock API** (`js/api.js`). The optional
+Supabase adapter (`js/supabase-api.js`) preserves the same screen API, but remains
+disabled until live Auth, data, and security checks are complete.
 
 Reviewed on 2026-10-25. `supabase/schema.sql` is the initial migration, and
 `docs/SUPABASE_SETUP.md` defines the SQL-to-browser adapter mapping. The browser
-API is still a mock; adding keys does not connect Supabase.
+defaults to the mock; adding keys alone does not connect Supabase.
 
 **Non-negotiable product constraints**
 
@@ -86,7 +86,7 @@ Rules:
 
 - A `driver` user must have exactly one `driver_profiles` row.
 - Drivers register as `pending` and cannot see the feed until approved (§5).
-- The future browser adapter must reject blocked driver sessions and sign them out.
+- The browser adapter rejects blocked driver sessions and signs them out.
   The SQL immediately prevents blocked drivers reading request/contact data or
   accepting requests even with an existing valid JWT. Banning Supabase Auth login
   itself requires a separate trusted Auth admin action/hook; this migration does
@@ -263,13 +263,13 @@ can translate it directly.
    `requests(status, village_id)`, `villages(zone_id)`, `driver_profiles(zone_id, is_online)`).
 2. Enable RLS; write policies matching the visibility matrix in §6 — phones only after accept.
 3. Implement `acceptRequest` as a Postgres RPC (`security definer`) for atomic first-wins.
-4. Put the project URL + **anon key only** into `js/config.js` (never service_role).
-5. Replace bodies of `js/api.js` with supabase-js calls; keep exports identical.
-6. Keep `DEMO_MODE = true` until the real adapter and live security checks pass.
-   Keys alone must never remove the banner.
-7. Real auth: Supabase phone/password for the agreed pilot; no password/hash column
-   in `public.users`. Without SMS there is no proof of phone ownership, so use
-   trusted test accounts and agree a recovery process before enrolling real users.
+4. Put the project URL + **publishable key only** into `js/config.js` (never service_role).
+5. The `js/supabase-api.js` adapter is installed behind `BACKEND: "supabase"`;
+   keep `BACKEND: "demo"` until the live checks pass. Keys alone do not switch it.
+6. Real auth uses Supabase phone/password. The owner chose public signup without
+   SMS for the pilot; this does **not** verify ownership. A person can claim
+   another person's number first. Agree an identity and account-recovery process
+   before enrolling real people. No password/hash column in `public.users`.
 8. `complete_profile` uses the authenticated user's phone from `auth.users`, never
    a phone or role taken blindly from editable metadata. It permits only passenger
    or driver creation, once. Admin is appointed out-of-band by the owner.

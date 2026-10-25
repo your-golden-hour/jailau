@@ -9,7 +9,7 @@
 
 "use strict";
 
-var CACHE_NAME = "jailau-shell-v4";
+var CACHE_NAME = "jailau-shell-v5";
 
 var SHELL_ASSETS = [
   "./",
@@ -18,6 +18,7 @@ var SHELL_ASSETS = [
   "./js/config.js",
   "./js/i18n.js",
   "./js/api.js",
+  "./js/supabase-api.js",
   "./js/app.js",
   "./js/screens/auth.js",
   "./js/screens/passenger.js",

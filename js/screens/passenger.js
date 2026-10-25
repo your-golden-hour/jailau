@@ -57,6 +57,10 @@
         var user = res[0];
         var zones = res[1];
         if (!user) { window.location.hash = "#/login"; return null; }
+        if (!zones.some(function (z) { return z.villages.length > 0; })) {
+          container.innerHTML = '<h1 class="screen-title">' + esc(t("home_ready")) + '</h1><div class="empty-state">' + esc(t("no_villages_yet")) + '</div>';
+          return;
+        }
 
         var villageId = user.village_id || (zones[0] && zones[0].villages[0] ? zones[0].villages[0].id : null);
 
@@ -123,6 +127,8 @@
                   '<div class="driver-since">' + esc(t("ph_driver_since", { time: fmtTimeOnly(d.online_since) })) + '</div>' +
                 '</div>';
             }).join("") + '<p class="small muted">' + esc(t("ph_privacy_note")) + '</p>';
+          }).catch(function () {
+            if (container.isConnected && box.isConnected) box.innerHTML = '<div class="empty-state">' + esc(t("error_generic")) + '</div>';
           });
         }
 
@@ -149,6 +155,10 @@
         var user = res[0];
         var zones = res[1];
         if (!user) { window.location.hash = "#/login"; return; }
+        if (!zones.some(function (z) { return z.villages.length > 0; })) {
+          container.innerHTML = '<h1 class="screen-title">' + esc(t("nr_title")) + '</h1><div class="empty-state">' + esc(t("no_villages_yet")) + '</div>';
+          return;
+        }
 
         var allVillages = [];
         zones.forEach(function (z) {

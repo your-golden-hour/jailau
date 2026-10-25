@@ -59,6 +59,7 @@
           '<form id="auth-form" class="card" novalidate autocomplete="on">' +
             (mode === "register" ? registerFields() : loginFields()) +
           '</form>' +
+          (!CFG.DEMO_MODE && mode === "register" ? '<p class="auth-warning">' + esc(t("terms_unverified")) + '</p>' : '') +
           (CFG.DEMO_MODE ? demoAccountsBlock() : "") +
           '<a class="text-link terms-link" href="#/terms">' + esc(t("terms_link")) + '</a>' +
           '<p class="small muted legal-line">' + esc(t("legal_disclaimer")) + '</p>' +
@@ -205,11 +206,12 @@
       villageSel.innerHTML = vHtml;
     }
     if (zoneSel) {
-      var zHtml = "";
+      var zHtml = '<option value="">—</option>';
       zones.forEach(function (z) {
         zHtml += '<option value="' + z.id + '">' + esc(window.I18N.localizedName(z.name)) + '</option>';
       });
       zoneSel.innerHTML = zHtml;
+      if (!zones.length) zoneSel.insertAdjacentHTML("afterend", '<p class="form-hint">' + esc(t("no_villages_yet")) + '</p>');
     }
   }
 
@@ -240,7 +242,14 @@
 
     API.signIn(phone, password)
       .then(function (user) { window.JAILAU_APP.onLogin(user); })
-      .catch(function (err) { setError(form, "phone", err.message || "err_login_failed"); });
+      .catch(function (err) {
+        if (err && err.message === "profile_incomplete") {
+          renderAuth(form.closest(".screen"), { mode: "register" });
+          window.JAILAU_APP.toast(t("profile_incomplete"), "error");
+          return;
+        }
+        setError(form, "phone", err.message || "err_login_failed");
+      });
   }
 
   function doRegister(form) {

@@ -1,23 +1,22 @@
 /* ============================================================
    Jailau — Configuration
    ------------------------------------------------------------
-   ONLY placeholders here. NO secrets, NO real keys.
-   When the Supabase backend is ready, paste your project URL
-   and the PUBLIC anon key (never the service_role key) into
-   the two values below, or override via a local untracked file.
+   Only public connection details live here. Never add a
+   service_role key, secret key, password, or private user data.
    ============================================================ */
 
 (function () {
   "use strict";
 
   window.JAILAU_CONFIG = {
-    // --- Supabase placeholders (intentionally empty / fake) ---
-    SUPABASE_URL: "YOUR_SUPABASE_URL",       // e.g. https://xyzcompany.supabase.co
-    SUPABASE_ANON_KEY: "YOUR_SUPABASE_ANON_KEY", // public anon key only
+    // --- Public Supabase project details; never put secrets here ---
+    SUPABASE_URL: "https://ubjcvqqxkgshguiwikqu.supabase.co",
+    SUPABASE_PUBLISHABLE_KEY: "sb_publishable_YXWZ6JHO4rsqnbUtYoVt6w_8Z74TxdJ",
+    // Explicit selector: credentials alone never switch a demo into real mode.
+    BACKEND: "demo", // "demo" or "supabase"
 
-    // This build ONLY implements the in-memory API. Keys cannot enable a backend.
     get DEMO_MODE() {
-      return true;
+      return this.BACKEND === "demo";
     },
 
     // --- App constants ---
