@@ -57,40 +57,25 @@
         var user = res[0];
         var zones = res[1];
         if (!user) { window.location.hash = "#/login"; return null; }
-        if (!zones.some(function (z) { return z.villages.length > 0; })) {
-          container.innerHTML = '<h1 class="screen-title">' + esc(t("home_ready")) + '</h1><div class="empty-state">' + esc(t("no_villages_yet")) + '</div>';
-          return;
-        }
-
         var villageId = user.village_id || (zones[0] && zones[0].villages[0] ? zones[0].villages[0].id : null);
 
         if (!container.isConnected) return;
         container.innerHTML = '' +
-          '<section class="home-hero">' +
-            '<div class="home-hero-copy"><p class="eyebrow">' + esc(t("home_eyebrow")) + '</p>' +
-              '<p class="home-hello">' + esc(t("ph_home_hello", { name: user.name })) + '</p>' +
-              '<h1 class="screen-title">' + esc(t("home_ready")) + '</h1>' +
-              '<p class="home-lead">' + esc(t("home_lead")) + '</p>' +
-              '<a class="btn btn-secondary home-hero-cta" href="#/passenger/new-request">' + esc(t("ph_create_request_cta")) + ' <span aria-hidden="true">↗</span></a>' +
-            '</div><div class="home-hero-art" aria-hidden="true"><span class="sun"></span><span class="hill hill-back"></span><span class="hill hill-front"></span><span class="road"></span></div>' +
-          '</section>' +
-
-          '<div class="home-grid"><section class="home-main">' +
+          '<div class="quick-home"><div class="quick-header"><p class="eyebrow">ЖАЙЛАУ · ШЫМКЕНТ</p>' +
+            '<h1 class="screen-title">' + esc(t("home_ready")) + '</h1>' +
+            '<a class="home-phone" href="#/profile">' + esc(t("home_your_phone", { phone: user.phone })) + '</a></div>' +
+          '<div class="route-choices"><a class="route-choice" href="#/passenger/new-request?direction=village_to_city"><span>↗</span>' + esc(t("home_route_to_city")) + '</a>' +
+            '<a class="route-choice" href="#/passenger/new-request?direction=city_to_village"><span>↙</span>' + esc(t("home_route_from_city")) + '</a></div>' +
+          '<section class="home-main">' +
           '<div class="card village-picker">' +
             '<div class="form-field" style="margin-bottom:0">' +
               '<label class="form-label" for="home-village">' + esc(t("ph_village_label")) + '</label>' +
               '<select class="form-select" id="home-village"></select>' +
             '</div>' +
           '</div>' +
-          '<div class="section-heading"><div><p class="eyebrow">' + esc(t("ph_village_label")) + '</p><h2 class="section-title">' + esc(t("ph_online_drivers")) + '</h2></div><span class="live-marker" aria-hidden="true"></span></div>' +
+          '<div class="section-heading"><h2 class="section-title">' + esc(t("ph_online_drivers")) + '</h2></div>' +
           '<div id="drivers-list"><p class="muted">' + esc(t("loading")) + '</p></div>' +
-          '</section><aside class="home-aside">' +
-            '<div class="how-card"><p class="eyebrow">ЖАЙЛАУ</p><h2>' + esc(t("home_how_title")) + '</h2>' +
-              '<ol><li><span>01</span>' + esc(t("home_step_one")) + '</li><li><span>02</span>' + esc(t("home_step_two")) + '</li><li><span>03</span>' + esc(t("home_step_three")) + '</li></ol>' +
-              '<a class="btn btn-primary btn-block" href="#/passenger/new-request">' + esc(t("ph_create_request_cta")) + '</a></div>' +
-            '<div class="privacy-note">' + esc(t("ph_privacy_note")) + '</div>' +
-          '</aside></div>' +
-          '<footer class="page-footer"><span>' + esc(t("legal_disclaimer")) + '</span><a href="#/terms">' + esc(t("terms_link")) + '</a></footer>';
+          '</section></div>';
 
         // Village select
         var sel = container.querySelector("#home-village");
@@ -103,6 +88,11 @@
           if (group) html += '<optgroup label="' + esc(ln(z.name)) + '">' + group + '</optgroup>';
         });
         sel.innerHTML = html;
+        if (!villageId) {
+          sel.disabled = true;
+          container.querySelector("#drivers-list").innerHTML = '<div class="empty-state">' + esc(t("no_villages_yet")) + '</div>';
+          return;
+        }
 
         function loadDrivers(vid) {
           var box = container.querySelector("#drivers-list");
@@ -165,6 +155,7 @@
           z.villages.forEach(function (v) { allVillages.push({ zone: z, village: v }); });
         });
         var preselected = user.village_id || (allVillages[0] ? allVillages[0].village.id : "");
+        var chosenDirection = window.location.hash.indexOf("direction=city_to_village") !== -1 ? "city_to_village" : "village_to_city";
 
         var today = new Date();
         var yyyy = today.getFullYear();
@@ -173,15 +164,14 @@
 
         container.innerHTML = '' +
           '<h1 class="screen-title">' + esc(t("nr_title")) + '</h1>' +
-          '<p class="screen-subtitle">' + esc(t("nr_subtitle")) + '</p>' +
 
           '<form id="nr-form" class="card" novalidate>' +
             // Direction
             '<div class="form-field" data-field="direction">' +
               '<label class="form-label">' + esc(t("nr_direction")) + '</label>' +
               '<div class="radio-row">' +
-                dirChip("village_to_city", t("nr_dir_to_city"), true) +
-                dirChip("city_to_village", t("nr_dir_from_city"), false) +
+                dirChip("village_to_city", t("home_route_to_city"), chosenDirection === "village_to_city") +
+                dirChip("city_to_village", t("home_route_from_city"), chosenDirection === "city_to_village") +
               '</div>' +
             '</div>' +
 
@@ -257,7 +247,7 @@
             '<div class="form-field" data-field="comment">' +
               '<label class="form-label" for="nr-comment">' + esc(t("nr_comment")) + '</label>' +
               '<textarea class="form-textarea" id="nr-comment" name="comment" maxlength="500" data-i18n-placeholder="nr_comment_placeholder"></textarea>' +
-              '<div class="form-hint">' + esc(t("terms_warning")) + '</div><div class="form-error"></div>' +
+              '<div class="form-error"></div>' +
             '</div>' +
 
             '<button class="btn btn-primary btn-block" type="submit">' + esc(t("nr_submit")) + '</button>' +
@@ -465,9 +455,10 @@
       ? '<button class="btn btn-danger btn-sm" data-cancel="' + r.id + '">' + esc(t("mr_btn_cancel")) + '</button>'
       : "";
 
-    var doneBtn = r.status === "accepted"
+    var availableAt = Math.max(new Date(r.accepted_at || 0).getTime(), new Date(r.datetime || r.accepted_at || 0).getTime()) + 3600000;
+    var doneBtn = r.status === "accepted" && Date.now() >= availableAt
       ? '<button class="btn btn-primary btn-sm" data-confirm-done="' + esc(r.id) + '">' + esc(t("df_confirm_done")) + '</button>'
-      : "";
+      : r.status === "accepted" ? '<span class="card-meta">' + esc(t("trip_confirm_after", { time: fmtDateTime(new Date(availableAt).toISOString()) })) + '</span>' : "";
 
     var whenText = r.when === "asap" ? t("df_when_asap") : fmtDateTime(r.datetime);
 

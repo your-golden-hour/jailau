@@ -1,14 +1,13 @@
 # Jailau — Data Contract (Mock → Supabase)
 
 This document defines the data model for **Jailau / Жайлау**, a free platform that
-connects passengers in villages near Shymkent with local taxi drivers. The frontend
-currently runs against an **in-memory mock API** (`js/api.js`). The optional
-Supabase adapter (`js/supabase-api.js`) preserves the same screen API, but remains
-disabled until live Auth, data, and security checks are complete.
+connects passengers in villages near Shymkent with local taxi drivers. The browser
+now uses only the Supabase adapter (`js/supabase-api.js`). The old mock source
+was removed; older commits retain its history.
 
-Reviewed on 2026-10-25. `supabase/schema.sql` is the initial migration, and
-`docs/SUPABASE_SETUP.md` defines the SQL-to-browser adapter mapping. The browser
-defaults to the mock; adding keys alone does not connect Supabase.
+Updated on 2026-10-26. `supabase/schema.sql` is the initial schema for a new
+project; the existing cloud project received the migration under
+`supabase/migrations/`. See `docs/SUPABASE_SETUP.md` for owner-only setup.
 
 **Non-negotiable product constraints**
 
@@ -77,7 +76,7 @@ Relationships: belongs to a zone; referenced by `requests.village_id`, `tariffs.
 | `id` | uuid | ✔ | PK = Supabase `auth.users.id` when migrated |
 | `name` | text | ✔ | Display name (first name + surname initial is enough) |
 | `phone` | text | ✔ | E.164-ish `+77XXXXXXXXX`; unique; **never shown before consent event (§6)** |
-| `password_hash` | text | mock-only | In production handled by Supabase Auth — do **not** store passwords yourself |
+| `email` | Auth identity only | ✔ | Read from Supabase Auth, not stored in `public.users` |
 | `role` | enum `passenger` \| `driver` \| `admin` | ✔ | Set at registration; admin created out-of-band |
 | `village_id` | uuid | optional | Home village of a passenger (drives “online drivers near me”) |
 | `created_at` | timestamptz | ✔ | |
@@ -151,11 +150,13 @@ cancelled          open   (driver_id cleared)
 
 - Only the owning passenger may cancel while `status = open`.
 - Accept is atomic via `accept_request`: locks the driver's profile, verifies
-  `active`, online state, seats and zone, then conditionally updates an open request.
+  `active`, online state, seats and zone, then checks the sum of seats in overlapping
+  two-hour windows before conditionally updating an open request.
   First driver wins; losing calls receive `df_already_taken`. Clients have no
   direct INSERT/UPDATE/DELETE privileges on requests.
 - Only the owning passenger can confirm an accepted ride as done. Driver/admin
-  completion is forbidden. The same transaction increments `completed_trips` once.
+  completion is forbidden. Confirmation opens no sooner than one hour after
+  acceptance or scheduled start. The same transaction increments `completed_trips` once.
 - A released request returns to the feed with `driver_id = null`.
 
 ### Privacy / field visibility matrix (critical for RLS policies)
@@ -176,8 +177,7 @@ Implementation notes for Supabase:
   `requests` and returns the phone **only** when `requests.driver_id = auth.uid()`
   (for passenger phone) or `requests.passenger_id = auth.uid() AND status in ('accepted','done')`
   (for driver phone). Never select raw `users.phone` client-side.
-- The mock enforces this in `decorateRequest()` inside `js/api.js` — keep the same
-  semantics server-side.
+- `jailau_private.request_json()` enforces this on the server.
 
 ---
 
@@ -219,16 +219,20 @@ which helps a driver judge whether a 1500 ₸ offer is profitable.
 
 ## 9. API surface (frontend contract)
 
-`js/api.js` exposes `window.JAILAU_API` — the single point of all data access.
-The Supabase implementation must keep these signatures (all return Promises
+`js/supabase-api.js` exposes `window.JAILAU_API` — the single point of browser data access.
+The Supabase implementation uses these signatures (all return Promises
 except the synchronous `estimateFuelCost` helper):
 
 | Function | Args | Returns | Notes |
 |---|---|---|---|
-| `signUp` | `{name, phone, password, role, village_id?, driver?{zone_id, car_brand, plate, seats, fuel_consumption}}` | public user | driver gets `pending` profile |
-| `signIn` | `phone, password` | public user | blocked drivers rejected |
+| `signUp` | `email, password` | `{needsConfirmation}` | email verification required |
+| `signIn` | `email, password` | public user | blocked drivers rejected |
+| `signInWithGoogle` | – | OAuth redirect | provider pending owner setup |
+| `completeProfile` | `{phone,name,role,driver?}` | public user | driver gets `pending` profile |
+| `updateProfile` | `{name,phone}` | public user | self only, unique phone |
+| `changePassword` | `newPassword` | true | Supabase Auth |
 | `signOut` | – | true | clears session |
-| `getCurrentUser` | – | public user \| null | session only, in-memory |
+| `getCurrentUser` | – | public user \| incomplete user \| null | persistent Supabase Auth session |
 | `listZonesAndVillages` | – | zones[] each with villages[] (+`suggested_price`) | reference data |
 | `setUserVillage` | `village_id` | public user | passenger home village |
 | `createRequest` | `{direction, village_id, pickup_spot, when, datetime, seats, negotiable, price, comment}` | request | validates seats 1–4 |
@@ -257,22 +261,19 @@ can translate it directly.
 
 ---
 
-## 10. Migration checklist (mock → Supabase)
+## 10. Migration status and next checks
 
 1. Create tables per §2–§8 (SQL above described structurally; add indexes on
    `requests(status, village_id)`, `villages(zone_id)`, `driver_profiles(zone_id, is_online)`).
 2. Enable RLS; write policies matching the visibility matrix in §6 — phones only after accept.
 3. Implement `acceptRequest` as a Postgres RPC (`security definer`) for atomic first-wins.
 4. Put the project URL + **publishable key only** into `js/config.js` (never service_role).
-5. The `js/supabase-api.js` adapter is installed behind `BACKEND: "supabase"`;
-   keep `BACKEND: "demo"` until the live checks pass. Keys alone do not switch it.
-6. Real auth uses Supabase phone/password. The owner chose public signup without
-   SMS for the pilot; this does **not** verify ownership. A person can claim
-   another person's number first. Agree an identity and account-recovery process
-   before enrolling real people. No password/hash column in `public.users`.
-8. `complete_profile` uses the authenticated user's phone from `auth.users`, never
-   a phone or role taken blindly from editable metadata. It permits only passenger
-   or driver creation, once. Admin is appointed out-of-band by the owner.
+5. The browser now uses Supabase only; it fails closed when configuration is missing.
+6. Email/password Auth is available; Google OAuth needs owner Google Cloud setup.
+   Contact phone is unique but unverified, and can be changed in Profile.
+8. `complete_profile` takes the contact phone from an authenticated caller and
+   validates it through a database constraint. It permits only passenger or driver
+   creation, once. Admin is appointed out-of-band by the owner.
 9. Paginate request lists (`list_requests` defaults to 50 rows, caps at 100).
 10. Never include phone numbers in pickup/comment/name fields: free text is visible
     to approved drivers in the zone before acceptance. Add a user notice and

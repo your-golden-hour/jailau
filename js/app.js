@@ -36,7 +36,7 @@
         c.innerHTML = '<div class="terms-page"><a class="text-link" href="' + (currentUser ? homeHashFor(currentUser) : '#/login') + '">← ' + esc(t("nav_home")) + '</a>' +
           '<h1 class="screen-title">' + esc(t("terms_title")) + '</h1>' +
           '<p class="terms-intro">' + esc(t("terms_updated")) + '</p>' +
-          '<div class="card terms-copy"><p>' + esc(t("terms_service")) + '</p><p>' + esc(t("terms_payment")) + '</p><p>' + esc(t("terms_data")) + '</p><p>' + esc(t("terms_warning")) + '</p><p>' + esc(t("terms_unverified")) + '</p>' + (window.JAILAU_CONFIG.DEMO_MODE ? '<p>' + esc(t("terms_demo")) + '</p>' : '') + '</div></div>';
+          '<div class="card terms-copy"><p>' + esc(t("terms_service")) + '</p><p>' + esc(t("terms_payment")) + '</p><p>' + esc(t("terms_data")) + '</p><p>' + esc(t("terms_warning")) + '</p><p>' + esc(t("terms_unverified")) + '</p></div></div>';
       }
     },
     "#/passenger/home": {
@@ -64,6 +64,16 @@
       nav: "mine-driver",
       render: function (c) { SCREENS.driver.renderMyRequests(c); }
     },
+    "#/profile": {
+      roles: ["passenger", "driver", "admin"],
+      nav: "profile",
+      render: function (c) { SCREENS.profile.render(c, false); }
+    },
+    "#/profile/complete": {
+      roles: ["incomplete"],
+      nav: null,
+      render: function (c) { SCREENS.profile.render(c, true); }
+    },
     "#/admin": {
       roles: ["admin"],
       nav: "admin",
@@ -73,6 +83,7 @@
 
   function homeHashFor(user) {
     if (!user) return "#/login";
+    if (user.role === "incomplete") return "#/profile/complete";
     if (user.role === "driver") return "#/driver/feed";
     if (user.role === "admin") return "#/admin";
     return "#/passenger/home";
@@ -85,26 +96,28 @@
       { hash: "#/passenger/home", key: "nav_home", icon: "⌂", id: "home" },
       { hash: "#/passenger/new-request", key: "nav_new_request", icon: "+", id: "new" },
       { hash: "#/passenger/my-requests", key: "nav_my_requests", icon: "▤", id: "mine" },
-      { hash: "#logout", key: "nav_logout", icon: "↗", id: "logout" }
+      { hash: "#/profile", key: "nav_profile", icon: "◯", id: "profile" }
     ],
     driver: [
       { hash: "#/driver/feed", key: "nav_feed", icon: "≡", id: "feed" },
       { hash: "#/driver/my-requests", key: "nav_driver_requests", icon: "▤", id: "mine-driver" },
-      { hash: "#logout", key: "nav_logout", icon: "↗", id: "logout" }
+      { hash: "#/profile", key: "nav_profile", icon: "◯", id: "profile" }
     ],
     admin: [
       { hash: "#/admin", key: "nav_admin", icon: "▦", id: "admin" },
-      { hash: "#logout", key: "nav_logout", icon: "↗", id: "logout" }
+      { hash: "#/profile", key: "nav_profile", icon: "◯", id: "profile" }
     ]
   };
 
   function renderNav(activeId) {
-    if (!currentUser || !ROUTES[window.location.hash] || ROUTES[window.location.hash].public) {
+    var currentRoute = window.location.hash.split("?")[0];
+    if (!currentUser || !ROUTES[currentRoute] || ROUTES[currentRoute].public) {
       elNav.classList.add("hidden");
       elNav.innerHTML = "";
       return;
     }
     var items = NAV_ITEMS[currentUser.role] || [];
+    if (!items.length) { elNav.classList.add("hidden"); return; }
     elNav.classList.remove("hidden");
     elNav.innerHTML = items.map(function (it) {
       return '<a class="nav-item' + (it.id === activeId ? " active" : "") + '" href="' + it.hash + '">' +
@@ -126,7 +139,7 @@
   /* ---------------- Router ---------------- */
 
   function route() {
-    var hash = window.location.hash || "#/login";
+    var hash = (window.location.hash || "#/login").split("?")[0];
     // Normalize unknown hashes
     if (!ROUTES[hash]) {
       window.location.hash = currentUser ? homeHashFor(currentUser) : "#/login";
@@ -142,6 +155,10 @@
     // Already logged in but on login page → go home
     if (hash === "#/login" && currentUser) {
       window.location.hash = homeHashFor(currentUser);
+      return;
+    }
+    if (currentUser && currentUser.role === "incomplete" && hash !== "#/profile/complete" && hash !== "#/terms") {
+      window.location.hash = "#/profile/complete";
       return;
     }
     // Role guard
@@ -193,7 +210,7 @@
   function onLogin(user) {
     currentUser = user;
     var target = homeHashFor(user);
-    toast(t("ph_home_hello", { name: user.name }), "success");
+    if (user.role !== "incomplete") toast(t("ph_home_hello", { name: user.name }), "success");
     if (window.location.hash === target) {
       route(); // same hash won't fire hashchange
     } else {
@@ -219,10 +236,6 @@
     elNav = document.getElementById("bottom-nav");
     toastBox = document.getElementById("toast-container");
 
-    // DEMO banner is forced visible while running on mock data
-    var banner = document.getElementById("demo-banner");
-    if (banner && !window.JAILAU_CONFIG.DEMO_MODE) banner.classList.add("hidden");
-
     document.getElementById("lang-toggle").addEventListener("click", function () {
       window.I18N.toggleLang();
     });
@@ -245,7 +258,7 @@
       }
       route();
     }).catch(function (err) {
-      if (!window.JAILAU_CONFIG.DEMO_MODE && !window.JAILAU_REAL_BACKEND_READY) {
+      if (!window.JAILAU_REAL_BACKEND_READY) {
         elScreen.innerHTML = '<div class="empty-state">' + esc(t(err && err.message === "err_config" ? "err_config" : "err_backend_unavailable")) + '</div>';
         return;
       }

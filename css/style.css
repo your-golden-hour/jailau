@@ -81,36 +81,6 @@ body {
 }
 .btn-lang:hover { background: rgba(255,255,255,0.12); }
 
-/* ---------- DEMO banner ---------- */
-.demo-banner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  min-height: var(--banner-h);
-  padding: 6px 12px;
-  background: repeating-linear-gradient(
-    -45deg,
-    var(--sand),
-    var(--sand) 14px,
-    var(--sand-light) 14px,
-    var(--sand-light) 28px
-  );
-  color: var(--text);
-  font-size: 13px;
-  text-align: center;
-  border-bottom: 2px solid var(--sand);
-}
-.demo-banner strong {
-  background: var(--text);
-  color: var(--sand);
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  letter-spacing: 1px;
-}
-
 /* ---------- Screen area ---------- */
 .screen {
   flex: 1;
@@ -436,13 +406,6 @@ body {
   font-family: var(--font-stack);
 }
 .auth-tab.active { background: var(--green); color: var(--white); border-color: var(--green); }
-.demo-accounts { font-size: 12.5px; color: var(--text-muted); margin-top: 12px; }
-.demo-accounts code {
-  background: var(--green-light);
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-size: 12px;
-}
 
 /* ---------- Empty state ---------- */
 .empty-state {
@@ -598,8 +561,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .brand-subtitle { font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-muted); margin-top: 5px; }
 .btn-lang { color: var(--green-dark); border-color: var(--border); padding: 9px 15px; min-width: 55px; }
 .btn-lang:hover { background: var(--green-light); }
-.demo-banner { background: #fdf4dc; border-bottom: 1px solid #ecd7a3; color: #705322; gap: 10px; font-size: 12px; }
-.demo-banner strong { background: #946d29; color: #fff; font-size: 10px; padding: 3px 8px; }
 .screen { width: 100%; max-width: 1200px; margin: 0 auto; padding: 34px 24px calc(var(--nav-h) + 50px); overflow: visible; }
 .screen.no-nav { padding-bottom: 60px; }
 .screen.auth-screen { max-width: none; padding: 0; }
@@ -657,14 +618,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .auth-tab.active { color: var(--green); border-color: #d4a846; background: transparent; }
 .auth-card form.card { padding: 0; border: 0; box-shadow: none; background: transparent; margin-bottom: 0; }
 .auth-card form .btn-primary { margin-top: 7px; }
-.demo-chooser { margin-top: 27px; border-top: 1px solid var(--border); padding-top: 22px; }
-.demo-chooser-title { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13px; margin-bottom: 12px; }
-.demo-dot, .live-marker { width: 8px; height: 8px; border-radius: 50%; background: #7ab36b; box-shadow: 0 0 0 4px #e9f3e5; flex-shrink: 0; }
-.demo-role-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.demo-role { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 47px; padding: 7px; border-radius: 11px; border: 1px solid var(--border); background: white; color: var(--green-dark); cursor: pointer; font-size: 12px; font-weight: 700; }
-.demo-role:hover { background: var(--green-light); border-color: #8baa91; }
-.demo-role-icon { font-size: 16px; }
-.demo-caption { font-size: 11px; color: var(--text-muted); margin-top: 10px; }
 .terms-link { display: inline-block; margin-top: 25px; font-size: 12px; }
 .legal-line { margin-top: 10px; line-height: 1.55; }
 .auth-warning { margin-top: 16px; border-radius: 11px; border: 1px solid #edd9aa; background: #fff7e3; color: #694f23; padding: 13px; font-size: 12px; }
@@ -759,8 +712,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .auth-hero h1 { font-size: 43px; letter-spacing: -2px; }
   .hero-description { font-size: 14px; }
   .auth-panel { padding: 30px 19px 60px; }
-  .demo-role-grid { gap: 5px; }
-  .demo-role { flex-direction: column; min-height: 64px; }
   .home-hero .screen-title { font-size: 31px; }
   .driver-card .card-row { align-items: flex-start; }
   .badge-online { margin-left: 58px; }
@@ -770,3 +721,30 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Quiet, mobile-first booking surfaces. */
+.auth-simple, .quick-home, .profile-page { width: min(560px, 100%); margin: 0 auto; }
+.auth-simple { padding: 36px 18px 80px; }
+.auth-intro { padding: 10px 2px 28px; }
+.auth-intro h1 { font-size: clamp(30px, 8vw, 44px); line-height: 1.12; letter-spacing: -.04em; max-width: 520px; }
+.auth-intro p:last-child { color: var(--text-muted); margin-top: 12px; }
+.auth-form-card, .profile-card { padding: 24px; border-radius: 20px; margin-bottom: 16px; }
+.auth-form-card .form-label, .profile-card .form-label { display: block; margin: 16px 0 6px; }
+.auth-divider { color: var(--text-muted); text-align: center; margin: 16px 0; }
+.quick-header { padding: 8px 2px 20px; }
+.quick-header .screen-title { margin: 4px 0 10px; }
+.home-phone { display: inline-block; color: var(--green-dark); font-weight: 650; text-decoration: none; margin: 4px 0 16px; }
+.route-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+.route-choice { display: flex; flex-direction: column; justify-content: space-between; min-height: 132px; padding: 18px; border-radius: 20px; background: var(--white); box-shadow: var(--shadow); color: var(--text); text-decoration: none; font-size: 19px; font-weight: 700; line-height: 1.2; }
+.route-choice span { font-size: 28px; color: var(--green); }
+.route-choice:hover, .route-choice:focus-visible { outline: 2px solid var(--green); }
+.quick-home .village-picker { margin-bottom: 20px; }
+.quick-home .section-heading { margin: 0 0 12px; }
+.profile-page .profile-identity { font-weight: 700; overflow-wrap: anywhere; }
+.profile-links { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-bottom: 30px; }
+.profile-links #profile-logout { grid-column: 1 / -1; }
+.screen:has(.auth-simple) { padding: 0 16px; }
+.screen:has(.quick-home) { padding-top: 22px; }
+.screen:has(#nr-form) { max-width: 620px; }
+.screen:has(#nr-form) .radio-row:first-child { gap: 8px; }
+@media (max-width: 380px) { .route-choices { gap: 8px; } .route-choice { min-height: 116px; padding: 14px; font-size: 16px; } }

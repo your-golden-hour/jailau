@@ -51,6 +51,7 @@
 
         container.innerHTML = '' +
           '<h1 class="screen-title">' + esc(t("df_title")) + '</h1>' +
+          '<a class="home-phone" href="#/profile">' + esc(t("home_your_phone", { phone: user.phone })) + '</a>' +
           '<div class="feed-header">' +
             '<div id="online-box"></div>' +
             '<button id="btn-refresh" class="btn btn-ghost btn-sm">⟳ ' + esc(t("df_manual_refresh")) + '</button>' +
@@ -145,19 +146,6 @@
       ? '<span class="price-tag negotiable">' + esc(t("mr_price_negotiable")) + '</span>'
       : '<span class="price-tag">' + esc(fmtMoney(r.price)) + '</span>';
 
-    var tariffHtml = r.suggested_tariff != null
-      ? '<div class="tariff-hint">💡 ' + esc(t("df_tariff_suggested", { price: fmtMoney(r.suggested_tariff) })) + '</div>'
-      : "";
-
-    var calc = API.estimateFuelCost(r.km_to_city || 0, consumption);
-    var calcHtml = '<div class="calc-line">' + esc(t("df_calc_line", {
-      km: calc.km,
-      coef: calc.coefficient,
-      fuel: calc.consumption,
-      fuelPrice: calc.fuel_price,
-      cost: calc.cost_tenge.toLocaleString("ru-RU")
-    })) + '</div>';
-
     return '' +
       '<div class="card" data-request-id="' + r.id + '">' +
         '<div class="card-row">' +
@@ -168,10 +156,7 @@
           (r.pickup_spot ? " · " + esc(r.pickup_spot) : "") + '</div>' +
         '<div class="card-meta">🕐 ' + esc(whenText) + ' · 👥 ' + esc(t("df_seats", { n: r.seats })) + '</div>' +
         '<div class="card-meta">👤 ' + esc(t("df_passenger", { name: r.passenger_name })) + '</div>' +
-        '<div class="card-meta small muted">🔒 ' + esc(t("df_phone_hidden")) + '</div>' +
         (r.comment ? '<div class="card-meta">💬 ' + esc(r.comment) + '</div>' : "") +
-        tariffHtml +
-        calcHtml +
         '<div class="btn-group">' +
           '<button class="btn btn-primary btn-block" data-accept="' + r.id + '">' + esc(t("df_accept")) + '</button>' +
         '</div>' +
@@ -188,7 +173,7 @@
           renderFeed(container);
         }).catch(function (err) {
           btn.disabled = false;
-          var key = err && err.message === "df_already_taken" ? "df_already_taken" : "error_generic";
+          var key = err && (err.message === "df_already_taken" || err.message === "df_no_seats") ? err.message : "error_generic";
           window.JAILAU_APP.toast(t(key), "error");
           renderFeed(container);
         });

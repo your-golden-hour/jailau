@@ -1,20 +1,12 @@
-/* Real backend adapter. The app stays in demo mode until config explicitly opts in. */
+/* Supabase adapter. All ride mutations go through database RPCs. */
 (function () {
   "use strict";
 
   var cfg = window.JAILAU_CONFIG;
-  if (cfg.BACKEND === "demo") {
-    window.JAILAU_API_READY = Promise.resolve();
-    return;
-  }
-  var api = window.JAILAU_API;
-  Object.keys(api).forEach(function (name) {
+  var api = window.JAILAU_API = {};
+  ["signIn", "signUp", "signInWithGoogle", "getCurrentUser", "createRequest"].forEach(function (name) {
     api[name] = function () { return Promise.reject(new Error("err_backend_unavailable")); };
   });
-  if (cfg.BACKEND !== "supabase") {
-    window.JAILAU_API_READY = Promise.reject(new Error("err_config"));
-    return;
-  }
 
   function validConfig() {
     try {
@@ -34,10 +26,11 @@
 
   function codeFor(error) {
     var code = String(error && (error.code || error.message) || "");
-    if (/^(df_need_approved|df_already_taken|mr_cancel_not_possible|err_datetime_required|err_village_required|err_seats_range|err_price_invalid|ad_err_num)$/.test(code)) return code;
+    if (/^(df_need_approved|df_already_taken|df_no_seats|trip_too_early|mr_cancel_not_possible|err_datetime_required|err_village_required|err_seats_range|err_price_invalid|ad_err_num)$/.test(code)) return code;
     if (/phone_exists|user_already_exists|already.registered|duplicate key.*phone/i.test(code)) return "err_phone_exists";
     if (/invalid_credentials|invalid.login|invalid.grant/i.test(code)) return "err_login_failed";
-    if (/phone_not_confirmed/i.test(code)) return "err_phone_confirmation_required";
+    if (/email_not_confirmed|email.not.confirmed/i.test(code)) return "email_confirmation_required";
+    if (/provider.*not.enabled|unsupported.provider/i.test(code)) return "google_unavailable";
     return "error_generic";
   }
 
@@ -58,7 +51,7 @@
     var auth = await authUser();
     if (!auth) return null;
     var row = unwrap(await client.from("users").select("id,name,phone,role,village_id").eq("id", auth.id).maybeSingle());
-    if (!row) return null;
+    if (!row) return { id: auth.id, email: auth.email || "", role: "incomplete", name: "", phone: "", provider: auth.app_metadata && auth.app_metadata.provider || "email" };
     if (row.role === "driver") {
       var driver = unwrap(await client.from("driver_profiles").select("approval_status").eq("user_id", auth.id).maybeSingle());
       if (driver && driver.approval_status === "blocked") {
@@ -66,40 +59,54 @@
         throw new Error("err_login_failed");
       }
     }
-    return row;
+    return Object.assign({}, row, { email: auth.email || "", provider: auth.app_metadata && auth.app_metadata.provider || "email" });
   }
 
-  async function signUp(payload) {
+  async function signUp(email, password) {
+    var result = unwrap(await client.auth.signUp({ email: email, password: password,
+      options: { emailRedirectTo: window.location.origin + window.location.pathname } }));
+    return { needsConfirmation: !result.session };
+  }
+
+  async function signIn(email, password) {
+    unwrap(await client.auth.signInWithPassword({ email: email, password: password }));
+    return ownProfile();
+  }
+
+  async function signInWithGoogle() {
+    return unwrap(await client.auth.signInWithOAuth({ provider: "google", options: {
+      redirectTo: window.location.origin + window.location.pathname
+    } }));
+  }
+
+  async function completeProfile(payload) {
     var phone = normalizePhone(payload.phone);
     if (!/^\+7\d{10}$/.test(phone)) throw new Error("err_phone_invalid");
     if (!payload.name || !String(payload.name).trim()) throw new Error("err_name_required");
     if (payload.role !== "passenger" && payload.role !== "driver") throw new Error("error_generic");
-    if (String(payload.password || "").length < 6) throw new Error("err_password_short");
     if (payload.role === "driver" && (!payload.driver || !payload.driver.zone_id)) throw new Error("err_village_required");
-
-    var existing = await authUser();
-    if (existing) {
-      if (normalizePhone(existing.phone) !== phone) throw new Error("err_login_failed");
-      if (await ownProfile()) throw new Error("err_phone_exists");
-    } else {
-      var created = unwrap(await client.auth.signUp({ phone: phone, password: payload.password }));
-      if (!created.session) throw new Error("err_phone_confirmation_required");
-    }
-
     unwrap(await client.rpc("complete_profile", {
-      p_name: String(payload.name).trim(),
-      p_role: payload.role,
+      p_phone: phone, p_name: String(payload.name).trim(), p_role: payload.role,
       p_village_id: payload.village_id || null,
       p_driver: payload.role === "driver" ? payload.driver : null
     }));
     return ownProfile();
   }
 
-  async function signIn(phone, password) {
-    unwrap(await client.auth.signInWithPassword({ phone: normalizePhone(phone), password: password }));
-    var profile = await ownProfile();
-    if (!profile) throw new Error("profile_incomplete");
-    return profile;
+  async function updateProfile(payload) {
+    var user = await authUser();
+    if (!user) throw new Error("err_login_failed");
+    var phone = normalizePhone(payload.phone);
+    if (!/^\+7\d{10}$/.test(phone)) throw new Error("err_phone_invalid");
+    if (!payload.name || !String(payload.name).trim()) throw new Error("err_name_required");
+    unwrap(await client.from("users").update({ name: String(payload.name).trim(), phone: phone }).eq("id", user.id));
+    return ownProfile();
+  }
+
+  async function changePassword(password) {
+    if (String(password || "").length < 6) throw new Error("err_password_short");
+    unwrap(await client.auth.updateUser({ password: password }));
+    return true;
   }
 
   async function signOut() {
@@ -241,10 +248,12 @@
 
   function install() {
     client = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_PUBLISHABLE_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
     });
     Object.assign(api, {
-      signUp: signUp, signIn: signIn, signOut: signOut, getCurrentUser: ownProfile,
+      signUp: signUp, signIn: signIn, signInWithGoogle: signInWithGoogle,
+      completeProfile: completeProfile, updateProfile: updateProfile,
+      changePassword: changePassword, signOut: signOut, getCurrentUser: ownProfile,
       listZonesAndVillages: listZonesAndVillages, getSettings: getSettings,
       setUserVillage: setUserVillage, createRequest: createRequest,
       listMyRequests: function () { return listRequests("mine"); },

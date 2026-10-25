@@ -33,31 +33,34 @@ test('PostgreSQL schema: roles, RLS, contacts, lifecycle and exactly-once counte
     for (let n = 21; n <= 29; n++) {
       await db.query('insert into auth.users values ($1,$2)',[id(n),`700000000${n}`]);
     }
-    for (const n of [21,22,29]) await as(id(n),'select public.complete_profile($1,$2)',[`Passenger ${n}`,'passenger']);
+    for (const n of [21,22,29]) await as(id(n),'select public.complete_profile($1,$2,$3)',[`+700000000${n}`,`Passenger ${n}`,'passenger']);
     for (const [n,zone,seats] of [[23,1,4],[24,1,4],[25,2,4],[26,1,4],[27,1,1]]) {
-      await as(id(n),'select public.complete_profile($1,$2,null,$3)',[`Driver ${n}`,'driver',
+      await as(id(n),'select public.complete_profile($1,$2,$3,null,$4)',[`+700000000${n}`,`Driver ${n}`,'driver',
         {zone_id:id(zone),car_brand:'Test car',plate:'DEMO',seats,fuel_consumption:7.5}]);
     }
-    await as(id(28),'select public.complete_profile($1,$2)',['Owner','passenger']);
+    await as(id(28),'select public.complete_profile($1,$2,$3)',['+70000000028','Owner','passenger']);
     await db.query("update public.users set role='admin' where id=$1",[id(28)]);
     for (const n of [23,24,25,27]) {
       await as(id(28),"select public.admin_set_driver_status($1,'active')",[id(n)]);
       await as(id(n),'select public.set_driver_online(true)');
     }
-    await assert.rejects(as(id(21),'select public.complete_profile($1,$2)',['Attack','admin']));
-    await denied(id(29),'select public.complete_profile($1,$2)',['Overwrite','driver']);
+    await assert.rejects(as(id(21),'select public.complete_profile($1,$2,$3)',['+70000000021','Attack','admin']));
+    await denied(id(29),'select public.complete_profile($1,$2,$3)',['+70000000029','Overwrite','driver']);
     assert.equal((await as(id(21),'select * from public.users')).length,1);
     await denied(id(21),"update public.users set role='admin' where id=$1",[id(21)]);
     await denied(id(23),"update public.driver_profiles set approval_status='active',completed_trips=99");
-    await denied(id(21),"update public.users set phone='+70000000999'");
+    assert.equal((await as(id(21),"update public.users set phone='+70000000999' where id=$1 returning id",[id(22)])).length,0);
+    await denied(id(21),"update public.users set phone='+70000000022' where id=$1",[id(21)]);
+    await as(id(21),"update public.users set phone='+70000000999' where id=$1",[id(21)]);
+    await as(id(21),"update public.users set phone='+70000000021' where id=$1",[id(21)]);
     assert.equal((await as(id(21),'update public.users set name=$1 where id=$2 returning id',['Other',id(22)])).length,0);
     assert.equal((await as(null,'select * from public.zones',[],'anon')).length,2);
     await assert.rejects(as(null,'select * from public.users',[],'anon'));
     await assert.rejects(as(null,"select public.list_requests('feed')",[],'anon'));
     await denied(id(21),'select jailau_private.request_json($1)',[id(99)]);
     await denied(id(21),'select public.admin_set_driver_status($1,$2)',[id(26),'active']);
-    const create = async village => (await as(id(21),`select public.create_request(
-      'village_to_city',$1,'Test landmark','asap',null,2,null,true,'') as id`,[id(village)]))[0].id;
+    const create = async (village, seats = 2) => (await as(id(21),`select public.create_request(
+      'village_to_city',$1,'Test landmark','asap',null,$2,null,true,'') as id`,[id(village),seats]))[0].id;
     const r = await create(11);
     const hidden = (await as(id(23),"select public.list_requests('feed') as r"))[0].r;
     assert.equal(hidden.passenger_phone,null);
@@ -84,11 +87,20 @@ test('PostgreSQL schema: roles, RLS, contacts, lifecycle and exactly-once counte
     assert.equal((await as(id(21),"select public.list_requests('mine') as r"))[0].r.driver_phone,null);
     assert.equal((await as(id(23),"select public.list_requests('feed') as r"))[0].r.passenger_phone,null);
     await as(id(24),'select public.accept_request($1)',[r]);
+    await denied(id(21),'select public.confirm_trip_done($1)',[r]);
+    await db.query("update public.requests set accepted_at=now()-interval '2 hours' where id=$1",[r]);
     await as(id(21),'select public.confirm_trip_done($1)',[r]);
     await denied(id(21),'select public.confirm_trip_done($1)',[r]);
     const count = await db.query('select completed_trips from public.driver_profiles where user_id=$1',[id(24)]);
     assert.equal(count.rows[0].completed_trips,1);
     const r2 = await create(11);
+    await as(id(23),'select public.accept_request($1)',[r2]);
+    const r3 = await create(11,3);
+    await denied(id(23),'select public.accept_request($1)',[r3]); // 2 + 3 exceeds four seats
+    await as(id(23),'select public.release_request($1)',[r2]);
+    await as(id(23),'select public.accept_request($1)',[r3]);
+    await as(id(23),'select public.release_request($1)',[r3]);
+    await as(id(21),'select public.cancel_request($1)',[r3]);
     await as(id(23),'select public.accept_request($1)',[r2]);
     await as(id(28),"select public.admin_set_driver_status($1,'blocked')",[id(23)]);
     assert.equal((await as(id(23),"select public.list_requests('driver')")).length,0);

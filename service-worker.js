@@ -4,12 +4,12 @@
      - Precache the static shell (HTML/CSS/JS/manifest/icon).
      - cache-first for same-origin static assets.
      - network-first with cache fallback for pages (so updates land).
-   Mock data lives in memory, so offline = last loaded shell only.
+   Personal information and API responses are never cached.
    ============================================================ */
 
 "use strict";
 
-var CACHE_NAME = "jailau-shell-v5";
+var CACHE_NAME = "jailau-shell-v6";
 
 var SHELL_ASSETS = [
   "./",
@@ -17,13 +17,14 @@ var SHELL_ASSETS = [
   "./css/style.css",
   "./js/config.js",
   "./js/i18n.js",
-  "./js/api.js",
   "./js/supabase-api.js",
   "./js/app.js",
   "./js/screens/auth.js",
+  "./js/screens/profile.js",
   "./js/screens/passenger.js",
   "./js/screens/driver.js",
   "./js/screens/admin.js",
+  "./vendor/supabase-js/supabase.js",
   "./manifest.webmanifest",
   "./icon.svg"
 ];
