@@ -9,7 +9,7 @@
 
 "use strict";
 
-var CACHE_NAME = "jailau-shell-v6";
+var CACHE_NAME = "jailau-shell-v7";
 
 var SHELL_ASSETS = [
   "./",
@@ -26,7 +26,9 @@ var SHELL_ASSETS = [
   "./js/screens/admin.js",
   "./vendor/supabase-js/supabase.js",
   "./manifest.webmanifest",
-  "./icon.svg"
+  "./icon.svg",
+  "./icons/city.svg",
+  "./icons/yurt.svg"
 ];
 
 self.addEventListener("install", function (event) {

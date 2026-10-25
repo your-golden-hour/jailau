@@ -7,8 +7,10 @@ through the connected Supabase project. Do not reapply it.
 
 ## Authentication
 
-- Email + password is the current working sign-in method. Supabase Email Auth is
-  enabled with email confirmation. Passwords stay in Supabase Auth, not app tables.
+- Registration asks only for an email and calls Supabase `signInWithOtp` to send
+  a one-time Magic Link. After the link creates a verified session, Profile
+  completion asks for a password (8+ characters), name, phone, and role. Returning
+  users sign in with email/password. Passwords stay in Supabase Auth.
 - Google OAuth is coded in the browser, but its Supabase provider is **disabled**.
   Only the project owner can configure a Google Cloud OAuth consent screen and web
   client, enter its client ID/secret directly in the Supabase dashboard, and enable
@@ -48,8 +50,9 @@ through the connected Supabase project. Do not reapply it.
 ## Owner actions before real-user pilot
 
 1. Run the site at `http://localhost:3000/` so email confirmation returns to it.
-2. Register a test email account, follow the confirmation link, and enter a
-   contact number. Check that Profile displays the number and can change it.
+2. Register a test email account using only the email field, follow the link,
+   create a password, and enter a contact number. Check that Profile displays
+   the number and can change it.
 3. Create verified zones/villages through an admin account. Promote only your
    own already-created `public.users` row to admin in SQL Editor by its UUID.
 4. Configure Google OAuth only if you want it now; no purchase is needed to

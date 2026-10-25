@@ -61,11 +61,11 @@
 
         if (!container.isConnected) return;
         container.innerHTML = '' +
-          '<div class="quick-home"><div class="quick-header"><p class="eyebrow">ЖАЙЛАУ · ШЫМКЕНТ</p>' +
+          '<div class="quick-home"><div class="quick-header">' +
             '<h1 class="screen-title">' + esc(t("home_ready")) + '</h1>' +
             '<a class="home-phone" href="#/profile">' + esc(t("home_your_phone", { phone: user.phone })) + '</a></div>' +
-          '<div class="route-choices"><a class="route-choice" href="#/passenger/new-request?direction=village_to_city"><span>↗</span>' + esc(t("home_route_to_city")) + '</a>' +
-            '<a class="route-choice" href="#/passenger/new-request?direction=city_to_village"><span>↙</span>' + esc(t("home_route_from_city")) + '</a></div>' +
+          '<div class="route-choices"><a class="route-choice" href="#/passenger/new-request?direction=village_to_city"><img class="route-icon" src="icons/city.svg" alt="">' + esc(t("home_route_to_city")) + '</a>' +
+            '<a class="route-choice" href="#/passenger/new-request?direction=city_to_village"><img class="route-icon" src="icons/yurt.svg" alt="">' + esc(t("home_route_from_city")) + '</a></div>' +
           '<section class="home-main">' +
           '<div class="card village-picker">' +
             '<div class="form-field" style="margin-bottom:0">' +

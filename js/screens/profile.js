@@ -27,6 +27,11 @@
       '<label class="form-label mt-16" for="profile-phone">' + esc(t("field_phone")) + '</label>' +
       '<input class="form-input" id="profile-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7XXXXXXXXXX" required value="' + esc(user.phone || "") + '">' +
       '<p class="form-hint">' + esc(t("profile_phone_note")) + '</p>' +
+      (complete && user.provider !== "google" ?
+        '<label class="form-label mt-16" for="profile-password">' + esc(t("profile_create_password")) + '</label>' +
+        '<input class="form-input" id="profile-password" type="password" autocomplete="new-password" minlength="8" required>' +
+        '<label class="form-label mt-16" for="profile-password-again">' + esc(t("field_confirm_password")) + '</label>' +
+        '<input class="form-input" id="profile-password-again" type="password" autocomplete="new-password" minlength="8" required>' : '') +
       (complete ? '<div class="form-field"><label class="form-label" for="profile-role">' + esc(t("field_role")) + '</label>' +
         '<select class="form-select" id="profile-role"><option value="passenger">' + esc(t("role_passenger")) + '</option><option value="driver">' + esc(t("role_driver")) + '</option></select></div>' +
         '<div id="profile-driver" class="hidden"><label class="form-label" for="driver-zone">' + esc(t("df_zone_label")) + '</label>' +
@@ -38,7 +43,7 @@
       '<p id="profile-message" class="form-hint" role="status"></p></div>' +
       (editing ? '<div class="card profile-card"><h2 class="section-title">' + esc(t("profile_password")) + '</h2>' +
         '<form id="password-form"><label class="form-label" for="new-password">' + esc(t("profile_new_password")) + '</label>' +
-        '<input class="form-input" id="new-password" type="password" autocomplete="new-password" minlength="6" required>' +
+        '<input class="form-input" id="new-password" type="password" autocomplete="new-password" minlength="8" required>' +
         '<button class="btn btn-secondary btn-block mt-16" type="submit">' + esc(t("profile_change_password")) + '</button></form></div>' +
         '<div class="profile-links"><button type="button" class="btn btn-ghost" data-placeholder="support">' + esc(t("profile_support")) + '</button>' +
         '<button type="button" class="btn btn-ghost" data-placeholder="feedback">' + esc(t("profile_feedback")) + '</button>' +
@@ -66,6 +71,14 @@
       if ((complete || value !== user.phone) && !confirmPhone(value)) return;
       var payload = { name: form.querySelector("#profile-name").value.trim(), phone: value };
       if (complete) {
+        var passwordField = form.querySelector("#profile-password");
+        if (passwordField) {
+          var newPassword = passwordField.value;
+          if (newPassword.length < 8) { status.textContent = t("err_password_short"); return; }
+          if (newPassword !== form.querySelector("#profile-password-again").value) {
+            status.textContent = t("err_passwords_mismatch"); return;
+          }
+        }
         payload.role = form.querySelector("#profile-role").value;
         if (payload.role === "driver") {
           payload.driver = { zone_id: form.querySelector("#driver-zone").value,
@@ -78,7 +91,10 @@
       }
       var button = form.querySelector('[type="submit"]');
       button.disabled = true;
-      (complete ? API.completeProfile(payload) : API.updateProfile(payload)).then(function (updated) {
+      var save = complete ?
+        (passwordField ? API.changePassword(newPassword).then(function () { return API.completeProfile(payload); }) : API.completeProfile(payload)) :
+        API.updateProfile(payload);
+      save.then(function (updated) {
         window.JAILAU_APP.onLogin(updated);
         if (!complete) { status.textContent = t("profile_saved"); }
       }).catch(function (err) { status.textContent = msg(err); }).finally(function () { button.disabled = false; });

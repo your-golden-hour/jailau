@@ -62,10 +62,12 @@
     return Object.assign({}, row, { email: auth.email || "", provider: auth.app_metadata && auth.app_metadata.provider || "email" });
   }
 
-  async function signUp(email, password) {
-    var result = unwrap(await client.auth.signUp({ email: email, password: password,
-      options: { emailRedirectTo: window.location.origin + window.location.pathname } }));
-    return { needsConfirmation: !result.session };
+  async function signUp(email) {
+    unwrap(await client.auth.signInWithOtp({ email: email, options: {
+      shouldCreateUser: true,
+      emailRedirectTo: window.location.origin + window.location.pathname
+    } }));
+    return { needsConfirmation: true };
   }
 
   async function signIn(email, password) {
@@ -104,7 +106,7 @@
   }
 
   async function changePassword(password) {
-    if (String(password || "").length < 6) throw new Error("err_password_short");
+    if (String(password || "").length < 8) throw new Error("err_password_short");
     unwrap(await client.auth.updateUser({ password: password }));
     return true;
   }

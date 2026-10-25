@@ -225,10 +225,10 @@ except the synchronous `estimateFuelCost` helper):
 
 | Function | Args | Returns | Notes |
 |---|---|---|---|
-| `signUp` | `email, password` | `{needsConfirmation}` | email verification required |
+| `signUp` | `email` | `{needsConfirmation}` | sends Magic Link; email verified on click |
 | `signIn` | `email, password` | public user | blocked drivers rejected |
 | `signInWithGoogle` | – | OAuth redirect | provider pending owner setup |
-| `completeProfile` | `{phone,name,role,driver?}` | public user | driver gets `pending` profile |
+| `completeProfile` | `{phone,name,role,driver?}` | public user | email flow sets password first; driver gets `pending` profile |
 | `updateProfile` | `{name,phone}` | public user | self only, unique phone |
 | `changePassword` | `newPassword` | true | Supabase Auth |
 | `signOut` | – | true | clears session |

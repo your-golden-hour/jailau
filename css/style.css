@@ -736,7 +736,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .home-phone { display: inline-block; color: var(--green-dark); font-weight: 650; text-decoration: none; margin: 4px 0 16px; }
 .route-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
 .route-choice { display: flex; flex-direction: column; justify-content: space-between; min-height: 132px; padding: 18px; border-radius: 20px; background: var(--white); box-shadow: var(--shadow); color: var(--text); text-decoration: none; font-size: 19px; font-weight: 700; line-height: 1.2; }
-.route-choice span { font-size: 28px; color: var(--green); }
+.route-icon { width: 42px; height: 42px; display: block; }
 .route-choice:hover, .route-choice:focus-visible { outline: 2px solid var(--green); }
 .quick-home .village-picker { margin-bottom: 20px; }
 .quick-home .section-heading { margin: 0 0 12px; }

@@ -50,6 +50,7 @@ test('real adapter uses Supabase Auth and atomic RPC, never mock request mutatio
           getSession: async () => ({data: {session: {user: {id: 'person-1'}}}, error: null}),
           getUser: async () => ({data: {user: {id: 'person-1',email:'test@example.com',app_metadata:{provider:'email'}}}, error: null}),
           signInWithPassword: async credentials => { calls.push(['signIn', credentials]); return {data: {}, error: null}; },
+          signInWithOtp: async payload => { calls.push(['signInWithOtp',payload]); return {data:{user:null,session:null},error:null}; },
           signOut: async () => ({data: {}, error: null})
         },
         from: table => {
@@ -73,6 +74,12 @@ test('real adapter uses Supabase Auth and atomic RPC, never mock request mutatio
     assert.equal(user.role, 'passenger');
     assert.equal(calls[0][0], 'signIn');
     assert.equal(calls[0][1].email, 'test@example.com');
+    const signup = await w.JAILAU_API.signUp('new@example.com');
+    assert.equal(signup.needsConfirmation,true);
+    const otp = calls.find(row => row[0] === 'signInWithOtp');
+    assert.equal(otp[1].email,'new@example.com');
+    assert.equal(otp[1].options.shouldCreateUser,true);
+    assert.equal('password' in otp[1],false);
     const request = await w.JAILAU_API.acceptRequest('request-1');
     assert.equal(request.status, 'accepted');
     assert.ok(calls.some(row => row[0] === 'rpc' && row[1] === 'accept_request' && row[2].p_request_id === 'request-1'));

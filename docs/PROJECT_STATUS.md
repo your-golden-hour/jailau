@@ -10,14 +10,17 @@ the owner's explicit approval.
 - Static bilingual Russian/Kazakh website with Supabase-only browser backend.
   Demo login, fake accounts, demo banner, and mock script have been removed from
   the runtime. Public URL/publishable key are in `js/config.js`; no secret key.
-- Email/password authentication; Google OAuth button/flow coded but the provider
-  remains disabled in the project pending owner Google Cloud setup.
+- Email-only registration sends a Supabase Magic Link. After email verification,
+  the user creates a password (8+ characters) and completes the profile. Returning
+  users sign in with email/password. Google OAuth flow is coded but the provider
+  remains disabled pending owner Google Cloud setup.
 - First-login profile completion gathers name, contact phone, and passenger or
   driver role. UI confirms the phone before saving. Profile shows email/Google
   identity, permits name/phone edits and password changes, and has support/feedback
   placeholders. Contact phone is shown on passenger and driver main screens.
-- Passenger home has clear village→Shymkent and Shymkent→village choices. The
-  request form and driver feed already handle both directions; cards simplified.
+- Passenger home has clear village→Shymkent and Shymkent→village choices with
+  original city/yurt SVG icons. The redundant eyebrow was removed. The request
+  form and driver feed already handle both directions; cards simplified.
 - Database migration `supabase/migrations/202610260001_email_profile_capacity.sql`
   applied to cloud project `ubjcvqqxkgshguiwikqu`. Phone is unique contact data,
   not Auth identity. Old phone-based `complete_profile` signature has no client
@@ -28,7 +31,7 @@ the owner's explicit approval.
   whichever is later; completion increments the counter once.
 - Seven public tables have RLS. Local PGlite test exercises roles, private phone
   reveal, zone/approval restrictions, seat limit, completion delay, and counter.
-  All 12 automated tests pass. Static PWA shell avoids caching API responses.
+  All 14 automated tests pass. Static PWA shell avoids caching API responses.
 
 ## Decisions and limitations
 
@@ -43,7 +46,7 @@ the owner's explicit approval.
   booked until verified geography and an admin are created. No mock geography
   should be copied into cloud without verification.
 - Supabase Site URL is `http://localhost:3000` with no extra redirect URLs.
-  A real email signup/login walkthrough is still pending. Production URL must be
+  A real email Magic Link/password setup walkthrough is still pending. Production URL must be
   allowlisted only after owner-approved deployment. OAuth needs owner setup.
   No site was published.
 - Terms/privacy draft exists, but legal consultation is still needed before real

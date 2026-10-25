@@ -21,8 +21,8 @@
       '<button type="button" class="auth-tab' + (register ? ' active' : '') + '" data-mode="register">' + esc(t("tab_register")) + '</button></div>' +
       '<form id="auth-form"><label class="form-label" for="auth-email">' + esc(t("field_email")) + '</label>' +
       '<input class="form-input" id="auth-email" type="email" autocomplete="email" required>' +
-      '<label class="form-label mt-16" for="auth-password">' + esc(t("field_password")) + '</label>' +
-      '<input class="form-input" id="auth-password" type="password" autocomplete="' + (register ? 'new-password' : 'current-password') + '" minlength="6" required>' +
+      (register ? '' : '<label class="form-label mt-16" for="auth-password">' + esc(t("field_password")) + '</label>' +
+      '<input class="form-input" id="auth-password" type="password" autocomplete="current-password" required>') +
       (register ? '<p class="form-hint">' + esc(t("email_check_note")) + '</p>' : '') +
       '<button class="btn btn-primary btn-block mt-16" type="submit">' + esc(t(register ? "btn_register" : "btn_login")) + '</button></form>' +
       '<div class="auth-divider">' + esc(t("auth_or")) + '</div>' +
@@ -37,14 +37,14 @@
     form.addEventListener("submit", function (event) {
       event.preventDefault();
       var email = form.querySelector("#auth-email").value.trim();
-      var password = form.querySelector("#auth-password").value;
+      var passwordInput = form.querySelector("#auth-password");
+      var password = passwordInput ? passwordInput.value : "";
       var button = form.querySelector('[type="submit"]');
       button.disabled = true;
       status.textContent = "";
-      var request = register ? API.signUp(email, password) : API.signIn(email, password);
+      var request = register ? API.signUp(email) : API.signIn(email, password);
       request.then(function (result) {
-        if (register && result.needsConfirmation) status.textContent = t("email_sent");
-        else if (register) API.getCurrentUser().then(window.JAILAU_APP.onLogin);
+        if (register) status.textContent = t("email_sent");
         else window.JAILAU_APP.onLogin(result);
       }).catch(function (err) { status.textContent = message(err); })
         .finally(function () { button.disabled = false; });

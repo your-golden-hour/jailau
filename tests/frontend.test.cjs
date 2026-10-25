@@ -13,8 +13,8 @@ function load() {
     listOnlineDriversByVillage: async () => [], setUserVillage: async () => ({}),
     listMyRequests: async () => [], createRequest: async () => ({})
   };
-  w.JAILAU_APP = {toast(){},getCurrentUser:() => ({name:'Test',phone:'+70000000001',email:'test@example.com',role:'passenger'})};
-  for (const file of ['config','i18n','screens/passenger','screens/profile']) w.eval(fs.readFileSync(`js/${file}.js`,'utf8'));
+  w.JAILAU_APP = {toast(){},onLogin(){},getCurrentUser:() => ({name:'Test',phone:'+70000000001',email:'test@example.com',role:'passenger'})};
+  for (const file of ['config','i18n','screens/auth','screens/passenger','screens/profile']) w.eval(fs.readFileSync(`js/${file}.js`,'utf8'));
   return dom;
 }
 const flush = () => new Promise(resolve => setImmediate(resolve));
@@ -27,7 +27,26 @@ test('home shows contact phone and both route directions', async () => {
     assert.match(w.document.body.textContent,/\+70000000001/);
     assert.ok(w.document.querySelector('a[href="#/passenger/new-request?direction=village_to_city"]'));
     assert.ok(w.document.querySelector('a[href="#/passenger/new-request?direction=city_to_village"]'));
+    assert.equal(w.document.querySelector('.quick-header .eyebrow'),null);
+    assert.equal(w.document.querySelector('a[href="#/passenger/new-request?direction=village_to_city"] img').getAttribute('src'),'icons/city.svg');
+    assert.equal(w.document.querySelector('a[href="#/passenger/new-request?direction=city_to_village"] img').getAttribute('src'),'icons/yurt.svg');
   } finally { dom.window.close(); }
+});
+
+test('registration asks only for email and sends a confirmation link', async () => {
+  const dom=load(),w=dom.window;
+  try {
+    let sent;
+    w.JAILAU_API.signUp=async email => { sent=email; return {needsConfirmation:true}; };
+    w.JAILAU_SCREENS.auth.render(w.document.getElementById('screen'),{mode:'register'});
+    const form=w.document.querySelector('#auth-form');
+    assert.equal(form.querySelector('#auth-password'),null);
+    form.querySelector('#auth-email').value='new@example.com';
+    form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+    await flush();
+    assert.equal(sent,'new@example.com');
+    assert.match(w.document.querySelector('#auth-message').textContent,/Проверьте почту/);
+  } finally {dom.window.close();}
 });
 
 test('request form refuses phone numbers in public comments', async () => {
@@ -80,6 +99,26 @@ test('profile asks for phone confirmation before writing', async () => {
     form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
     await flush();
     assert.equal(writes,0);
+  } finally {dom.window.close();}
+});
+
+test('verified email setup creates password before saving profile', async () => {
+  const dom=load(),w=dom.window;
+  try {
+    const calls=[];
+    w.confirm=() => true;
+    w.JAILAU_APP.getCurrentUser=() => ({name:'',phone:'',email:'new@example.com',role:'incomplete',provider:'email'});
+    w.JAILAU_API.changePassword=async value => {calls.push(['password',value]);};
+    w.JAILAU_API.completeProfile=async value => {calls.push(['profile',value]);return {role:'passenger',name:value.name};};
+    w.JAILAU_SCREENS.profile.render(w.document.getElementById('screen'),true);
+    const form=w.document.querySelector('#profile-form');
+    form.querySelector('#profile-name').value='New user';
+    form.querySelector('#profile-phone').value='+77011234567';
+    form.querySelector('#profile-password').value='long-test-password';
+    form.querySelector('#profile-password-again').value='long-test-password';
+    form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+    await flush();
+    assert.deepEqual(calls.map(x=>x[0]),['password','profile']);
   } finally {dom.window.close();}
 });
 
