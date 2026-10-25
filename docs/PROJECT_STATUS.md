@@ -7,7 +7,9 @@ Updated: 2026-10-25
 - Public repository: https://github.com/your-golden-hour/jailau
 - Qwen Coder uploaded the first bilingual vanilla-JS PWA scaffold to `main`.
 - First review targets `f9d42bab2c4ae2264914a45683debb4f06e7b347`.
-- Corrections and SQL are in `review/first-scaffold-security`; not merged to main/release.
+- Corrections and SQL merged into `main` through PR #2 (merge `c5a6880`).
+- Next Qwen Coder task is defined in `docs/QWEN_NEXT_TASK.md`: real Supabase
+  adapter with explicit backend selection, Auth/profile recovery, and safe RPCs.
 - Initial `supabase/schema.sql`: seven RLS-protected tables, scoped grants,
   profile completion, atomic acceptance, cancellation/release, passenger-only
   completion with exactly-once trip counter, safe contacts, admin approval/blocking.
@@ -36,7 +38,8 @@ Updated: 2026-10-25
 1. Supabase project selected and connected through the plugin; the initial schema
    was already installed. Cloud SQL role/access checks passed; see
    `docs/SUPABASE_LIVE_CHECK.md`. Do not rerun the initial schema.
-2. Integrate the real adapter in `js/api.js` with session persistence disabled.
+2. Qwen Coder implements `docs/QWEN_NEXT_TASK.md` from latest `main` and uploads
+   to `main`; engineering review follows. Keep session persistence disabled.
 3. Test Supabase Auth/PostgREST, two simultaneous acceptance/completion calls,
    blocked sessions, and recovery/ownership of phone-based accounts.
 4. Verify village geography and calculate straight-line distance from coordinates.
