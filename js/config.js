@@ -15,9 +15,9 @@
     SUPABASE_URL: "YOUR_SUPABASE_URL",       // e.g. https://xyzcompany.supabase.co
     SUPABASE_ANON_KEY: "YOUR_SUPABASE_ANON_KEY", // public anon key only
 
-    // Always true until real Supabase credentials are filled in above
+    // This build ONLY implements the in-memory API. Keys cannot enable a backend.
     get DEMO_MODE() {
-      return !this.SUPABASE_URL || this.SUPABASE_URL === "YOUR_SUPABASE_URL";
+      return true;
     },
 
     // --- App constants ---
@@ -28,9 +28,9 @@
 
     // --- Demo accounts (mock only, safe fake data) ---
     DEMO_ACCOUNTS: {
-      passenger: { phone: "+77010000001", password: "demo1234" },
-      driver:    { phone: "+77010000002", password: "demo1234" },
-      admin:     { phone: "+77010000003", password: "demo1234" }
+      passenger: { phone: "+70000000001", password: "demo1234" },
+      driver:    { phone: "+70000000002", password: "demo1234" },
+      admin:     { phone: "+70000000003", password: "demo1234" }
     }
   };
 })();

@@ -310,7 +310,7 @@
           '<div class="form-field">' +
             '<label class="form-label" for="set-coef">' + esc(t("ad_setting_road_coef")) + '</label>' +
             '<input class="form-input" id="set-coef" name="coef" type="number" min="1" step="0.05" value="' + s.road_coefficient + '">' +
-            '<div class="form-hint">1.3 = +30% к расстоянию за бездорожье/гравий</div>' +
+            '<div class="form-hint">' + esc(t("road_coefficient_hint")) + '</div>' +
           '</div>' +
           '<div class="form-field">' +
             '<label class="form-label" for="set-cons">' + esc(t("ad_setting_fuel_default")) + '</label>' +

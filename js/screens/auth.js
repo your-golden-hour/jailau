@@ -19,7 +19,7 @@
 
   function phoneRegexOk(v) {
     var digits = String(v).replace(/[\s()-]/g, "");
-    return /^\+?\d{9,15}$/.test(digits);
+    return /^\+7\d{10}$/.test(digits);
   }
 
   function renderAuth(container, opts) {
@@ -67,7 +67,7 @@
 
   function loginFields() {
     return '' +
-      field("phone", t("field_phone"), 'type="tel" inputmode="tel" placeholder="+7 701 000 00 01" required') +
+      field("phone", t("field_phone"), 'type="tel" inputmode="tel" placeholder="+7 XXX XXX XX XX" required') +
       field("password", t("field_password"), 'type="password" autocomplete="current-password" required') +
       '<button class="btn btn-primary btn-block" type="submit">' + esc(t("btn_login")) + '</button>';
   }
@@ -75,7 +75,7 @@
   function registerFields() {
     return '' +
       field("name", t("field_name"), 'type="text" autocomplete="name" required') +
-      field("phone", t("field_phone"), 'type="tel" inputmode="tel" placeholder="+7 701 000 00 01" required', t("field_phone_hint")) +
+      field("phone", t("field_phone"), 'type="tel" inputmode="tel" placeholder="+7 XXX XXX XX XX" required', t("field_phone_hint")) +
       field("password", t("field_password"), 'type="password" autocomplete="new-password" minlength="6" required') +
       field("confirm_password", t("field_confirm_password"), 'type="password" autocomplete="new-password" minlength="6" required') +
 

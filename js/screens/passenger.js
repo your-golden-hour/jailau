@@ -110,7 +110,7 @@
                       '<div class="card-meta">' + esc(t("ph_driver_card", { brand: esc(d.car_brand), seats: d.seats })) + '</div>' +
                       '<div class="card-meta">' + esc(t("ph_driver_since", { time: fmtTimeOnly(d.online_since) })) + '</div>' +
                     '</div>' +
-                    '<span class="badge badge-online">● online</span>' +
+                    '<span class="badge badge-online">● ' + esc(t("driver_online")) + '</span>' +
                   '</div>' +
                 '</div>';
             }).join("");
@@ -383,6 +383,19 @@
       container.innerHTML = '<h1 class="screen-title">' + esc(t("mr_title")) + '</h1>' +
         reqs.map(requestCardHtml).join("");
 
+      container.querySelectorAll("[data-confirm-done]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          btn.disabled = true;
+          API.confirmTripDone(btn.getAttribute("data-confirm-done")).then(function () {
+            window.JAILAU_APP.toast(t("df_trip_done_msg"), "success");
+            renderMyRequests(container);
+          }).catch(function () {
+            btn.disabled = false;
+            window.JAILAU_APP.toast(t("error_generic"), "error");
+          });
+        });
+      });
+
       container.querySelectorAll("[data-cancel]").forEach(function (btn) {
         btn.addEventListener("click", function () {
           var id = btn.getAttribute("data-cancel");
@@ -422,6 +435,10 @@
       ? '<button class="btn btn-danger btn-sm" data-cancel="' + r.id + '">' + esc(t("mr_btn_cancel")) + '</button>'
       : "";
 
+    var doneBtn = r.status === "accepted"
+      ? '<button class="btn btn-primary btn-sm" data-confirm-done="' + esc(r.id) + '">' + esc(t("df_confirm_done")) + '</button>'
+      : "";
+
     var whenText = r.when === "asap" ? t("df_when_asap") : fmtDateTime(r.datetime);
 
     return '' +
@@ -441,7 +458,7 @@
         (r.comment ? '<div class="card-meta">💬 ' + esc(r.comment) + '</div>' : "") +
         driverBlock +
         '<div class="card-meta small mt-8">' + esc(t("mr_created_at", { datetime: fmtDateTime(r.created_at) })) + '</div>' +
-        (cancelBtn ? '<div class="btn-group">' + cancelBtn + '</div>' : "") +
+        (cancelBtn || doneBtn ? '<div class="btn-group">' + cancelBtn + doneBtn + '</div>' : "") +
       '</div>';
   }
 

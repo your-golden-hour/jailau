@@ -9,7 +9,7 @@
 
 "use strict";
 
-var CACHE_NAME = "jailau-shell-v1";
+var CACHE_NAME = "jailau-shell-v2";
 
 var SHELL_ASSETS = [
   "./",
@@ -41,7 +41,7 @@ self.addEventListener("activate", function (event) {
   event.waitUntil(
     caches.keys().then(function (keys) {
       return Promise.all(
-        keys.filter(function (k) { return k !== CACHE_NAME; })
+        keys.filter(function (k) { return k.indexOf("jailau-shell-") === 0 && k !== CACHE_NAME; })
             .map(function (k) { return caches.delete(k); })
       );
     }).then(function () {
@@ -60,16 +60,22 @@ self.addEventListener("fetch", function (event) {
   // Navigations: network-first, fall back to cached index.html
   if (req.mode === "navigate") {
     event.respondWith(
-      fetch(req).then(function (res) {
-        var copy = res.clone();
-        caches.open(CACHE_NAME).then(function (c) { c.put("./index.html", copy); });
-        return res;
+      fetch(new URL("./index.html", self.location.href).href).then(function (res) {
+        if (!res.ok) throw new Error("Shell unavailable");
+        return caches.open(CACHE_NAME).then(function (c) {
+          return c.put("./index.html", res.clone()).then(function () { return res; });
+        });
       }).catch(function () {
         return caches.match("./index.html");
       })
     );
     return;
   }
+
+  // Only cache the explicit shell list. Never store future same-origin API data.
+  if (!SHELL_ASSETS.some(function (asset) {
+    return url.href === new URL(asset, self.location.href).href;
+  })) return;
 
   // Static assets: cache-first
   event.respondWith(
@@ -78,7 +84,7 @@ self.addEventListener("fetch", function (event) {
       return fetch(req).then(function (res) {
         if (res && res.status === 200 && res.type === "basic") {
           var copy = res.clone();
-          caches.open(CACHE_NAME).then(function (c) { c.put(req, copy); });
+          event.waitUntil(caches.open(CACHE_NAME).then(function (c) { return c.put(req, copy); }));
         }
         return res;
       });

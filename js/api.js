@@ -17,11 +17,11 @@
 
   var db = {
     users: [
-      { id: "u-p1", name: "Айгүл Сәрсенова", phone: "+77010000001", passwordHash: "demo1234", role: "passenger", village_id: "v-orkhovo", created_at: iso(-10) },
-      { id: "u-d1", name: "Ерлан Оспанов",  phone: "+77010000002", passwordHash: "demo1234", role: "driver",    village_id: "v-orkhovo", created_at: iso(-8) },
-      { id: "u-a1", name: "Админ Жайлау",   phone: "+77010000003", passwordHash: "demo1234", role: "admin",     village_id: null,        created_at: iso(-30) },
-      { id: "u-d2", name: "Болат К.",       phone: "+77021112233", passwordHash: "demo1234", role: "driver",    village_id: "v-kazygurt", created_at: iso(-5) },
-      { id: "u-d3", name: "Сергей П.",      phone: "+77035556677", passwordHash: "demo1234", role: "driver",    village_id: "v-kyzyldere", created_at: iso(-4) }
+      { id: "u-p1", name: "Демо-пассажир", phone: "+70000000001", passwordHash: "demo1234", role: "passenger", village_id: "v-orkhovo", created_at: iso(-10) },
+      { id: "u-d1", name: "Демо-водитель 1", phone: "+70000000002", passwordHash: "demo1234", role: "driver",    village_id: "v-orkhovo", created_at: iso(-8) },
+      { id: "u-a1", name: "Админ Жайлау",   phone: "+70000000003", passwordHash: "demo1234", role: "admin",     village_id: null,        created_at: iso(-30) },
+      { id: "u-d2", name: "Демо-водитель 2", phone: "+70000000004", passwordHash: "demo1234", role: "driver",    village_id: "v-kazygurt", created_at: iso(-5) },
+      { id: "u-d3", name: "Демо-водитель 3", phone: "+70000000005", passwordHash: "demo1234", role: "driver",    village_id: "v-kyzyldere", created_at: iso(-4) }
     ],
     driver_profiles: [
       { user_id: "u-d1", zone_id: "z-shardara", car_brand: "Hyundai Accent", plate: "560 ABC 03", seats: 4, fuel_consumption: 7.5, approval_status: "active", is_online: true, online_since: isoMinutesAgo(42) },
@@ -29,7 +29,7 @@
       { user_id: "u-d3", zone_id: "z-kazygurt", car_brand: "ВАЗ 2107",       plate: "777 GHI 03", seats: 3, fuel_consumption: 9.5, approval_status: "active",  is_online: true,  online_since: isoMinutesAgo(15) }
     ],
     zones: [
-      { id: "z-shardara", name: { ru: "Шардара", kz: "Сарыағаш" } },
+      { id: "z-shardara", name: { ru: "Сарыагаш", kz: "Сарыағаш" } },
       { id: "z-sayram",   name: { ru: "Сайрам",  kz: "Сайрам" } },
       { id: "z-kazygurt", name: { ru: "Казыгурт", kz: "Қазығұрт" } }
     ],
@@ -65,10 +65,10 @@
         created_at: isoMinutesAgo(60), accepted_at: null, done_at: null
       },
       {
-        id: "r-3", direction: "village_to_city", village_id: "v-sayram", pickup_spot: "центральный магазин",
+        id: "r-3", direction: "village_to_city", village_id: "v-kyzyldere", pickup_spot: "центральный магазин",
         when: "scheduled", datetime: isoInHours(20), seats: 1, price: 2500, negotiable: false,
         comment: "Нужно утром", status: "accepted",
-        passenger_id: "u-p1", driver_id: "u-d3",
+        passenger_id: "u-p1", driver_id: "u-d1",
         created_at: isoHoursAgo(3), accepted_at: isoHoursAgo(1), done_at: null
       }
     ],
@@ -146,6 +146,9 @@
   function signUp(payload) {
     // payload: { name, phone, password, role, village_id?, driver?: {car_brand, plate, seats, fuel_consumption, zone_id} }
     var phone = String(payload.phone || "").replace(/[\s()-]/g, "");
+    if (payload.role && payload.role !== "passenger" && payload.role !== "driver") return fail("error_generic");
+    if (!/^\+7\d{10}$/.test(phone)) return fail("err_phone_invalid");
+    if (String(payload.password || "").length < 6) return fail("err_password_short");
     if (!payload.name || !phone || !payload.password) {
       return fail("err_name_required");
     }
@@ -243,6 +246,8 @@
     if (!payload.village_id || !findVillage(payload.village_id)) return fail("err_village_required");
     var seats = parseInt(payload.seats, 10);
     if (!(seats >= 1 && seats <= 4)) return fail("err_seats_range");
+    if (payload.when === "scheduled" && !(Date.parse(payload.datetime) > Date.now())) return fail("err_datetime_required");
+    if (String(payload.pickup_spot || "").length > 120 || String(payload.comment || "").length > 500) return fail("error_generic");
 
     var req = {
       id: nextId("r"),
@@ -279,8 +284,8 @@
 
   /* ---------------- Driver ---------------- */
 
-  function listOpenRequestsForDriver(driverUserId) {
-    var uid = driverUserId || currentUserId;
+  function listOpenRequestsForDriver() {
+    var uid = currentUserId;
     var profile = uid ? findProfile(uid) : null;
     if (!profile || profile.approval_status !== "active") {
       return fail("df_need_approved");
@@ -301,9 +306,12 @@
     var uid = currentUserId;
     var profile = uid ? findProfile(uid) : null;
     if (!profile || profile.approval_status !== "active") return fail("df_need_approved");
+    if (!profile.is_online) return fail("df_must_be_online");
 
     var req = db.requests.find(function (r) { return r.id === requestId; });
     if (!req) return fail("error_generic");
+    var village = findVillage(req.village_id);
+    if (!village || village.zone_id !== profile.zone_id || req.seats > profile.seats) return fail("error_generic");
     if (req.status !== "open") return fail("df_already_taken"); // race guard
     req.status = "accepted";
     req.driver_id = uid;
@@ -335,12 +343,15 @@
 
   function confirmTripDone(requestId) {
     var uid = currentUserId;
+    var user = uid ? findUser(uid) : null;
     var req = db.requests.find(function (r) { return r.id === requestId; });
-    if (!req || req.driver_id !== uid) return fail("error_generic");
+    if (!user || user.role !== "passenger" || !req || req.passenger_id !== uid) return fail("error_generic");
     if (req.status !== "accepted") return fail("error_generic");
     req.status = "done";
     req.done_at = new Date().toISOString();
-    return delay(decorateRequest(req, "driver-owner"));
+    var profile = findProfile(req.driver_id);
+    profile.completed_trips = (profile.completed_trips || 0) + 1;
+    return delay(decorateRequest(req, "passenger"));
   }
 
   /** Driver's own status: approval, online state, zone (no sensitive data). */
@@ -356,14 +367,17 @@
       zone_id: profile.zone_id,
       zone_name: zone ? clone(zone.name) : null,
       car_brand: profile.car_brand,
-      seats: profile.seats
+      seats: profile.seats,
+      fuel_consumption: profile.fuel_consumption,
+      completed_trips: profile.completed_trips || 0
     });
   }
 
   /** Requests this driver has accepted or completed. Passenger phone revealed (accepted by them). */
   function listDriverAcceptedRequests() {
     var uid = currentUserId;
-    if (!uid) return delay([]);
+    var profile = uid ? findProfile(uid) : null;
+    if (!profile || profile.approval_status !== "active") return fail("df_need_approved");
     var rows = db.requests
       .filter(function (r) { return r.driver_id === uid && (r.status === "accepted" || r.status === "done"); })
       .map(function (r) { return decorateRequest(r, "driver-owner"); });
@@ -568,6 +582,7 @@
   function estimateFuelCost(kmToCity, fuelConsumptionPer100) {
     var s = db.settings;
     var cons = fuelConsumptionPer100 || s.default_fuel_consumption;
+    if (!Number.isFinite(Number(kmToCity)) || Number(kmToCity) < 0 || !Number.isFinite(Number(cons)) || Number(cons) <= 0) throw new Error("ad_err_num");
     var effectiveKm = kmToCity * s.road_coefficient;
     var liters = (effectiveKm * cons) / 100;
     var cost = Math.round(liters * s.fuel_price_tenge_per_liter);
