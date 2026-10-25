@@ -1,0 +1,15 @@
+node_modules/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.dump
+*.backup
+*.log
+.wrangler/
+coverage/
+test-results/
+playwright-report/
+

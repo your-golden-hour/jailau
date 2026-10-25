@@ -215,12 +215,12 @@
     // Re-render current screen on language change so all dynamic text updates
     window.addEventListener("jailau:langchange", function () {
       document.title = t("app_name") + " — Jailau";
-      window.I18N.applyAttributes(document.getElementById("topbar"));
-      window.I18N.applyAttributes(document.getElementById("demo-banner"));
+      window.I18N.applyAttributes(document);
       route();
     });
 
     window.addEventListener("hashchange", route);
+    window.I18N.applyAttributes(document);
 
     API.getCurrentUser().then(function (user) {
       currentUser = user;

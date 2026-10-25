@@ -6,12 +6,17 @@ currently runs against an **in-memory mock API** (`js/api.js`). When the real ba
 (Supabase) is ready, implement exactly these entities, fields, relationships and
 visibility rules so the frontend can swap `js/api.js` internals without touching screens.
 
+Reviewed on 2026-10-25. `supabase/schema.sql` is the initial migration, and
+`docs/SUPABASE_SETUP.md` defines the SQL-to-browser adapter mapping. The browser
+API is still a mock; adding keys does not connect Supabase.
+
 **Non-negotiable product constraints**
 
 - Zero budget: free tier only. No SMS providers, no Google Maps, no paid APIs.
 - Privacy-first: phone numbers are hidden until a driver **accepts** a request.
 - The platform is **not a carrier**. Payments are cash, passenger ↔ driver, off-platform.
-- All user-facing text exists in Russian (`ru`) and Kazakh (`kz`).
+- Dictionary/JSON keys remain Russian (`ru`) and Kazakh (`kz`); the HTML language
+  tag uses the standard Kazakh language code `kk`.
 - Mobile-first PWA; vanilla JS; hash routing.
 
 ---
@@ -44,7 +49,7 @@ District/area grouping villages into a driver's working feed.
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `id` | uuid / text | ✔ | PK |
-| `name` | jsonb `{ru, kz}` | ✔ | e.g. `{"ru":"Шардара","kz":"Сарыағаш"}` |
+| `name` | jsonb `{ru, kz}` | ✔ | e.g. `{"ru":"Сарыагаш","kz":"Сарыағаш"}` |
 
 Relationships: one zone → many `villages`; one zone → many `driver_profiles`.
 
@@ -59,7 +64,7 @@ Relationships: one zone → many `villages`; one zone → many `driver_profiles`
 | `name` | jsonb `{ru, kz}` | ✔ | Village name in both languages |
 | `lat` | numeric(9,6) | ✔ | WGS84 latitude (display/distance only — **no map tiles**) |
 | `lng` | numeric(9,6) | ✔ | WGS84 longitude |
-| `km_to_city` | numeric(6,1) | ✔ | Road distance to Shymkent center, used by fuel calculator |
+| `km_to_city` | numeric(6,1) | ✔ | Straight-line distance to the chosen Shymkent center, NOT road distance; multiply by road coefficient exactly once |
 
 Relationships: belongs to a zone; referenced by `requests.village_id`, `tariffs.village_id`, `users.village_id`.
 
@@ -81,7 +86,11 @@ Rules:
 
 - A `driver` user must have exactly one `driver_profiles` row.
 - Drivers register as `pending` and cannot see the feed until approved (§5).
-- Blocked drivers cannot sign in.
+- The future browser adapter must reject blocked driver sessions and sign them out.
+  The SQL immediately prevents blocked drivers reading request/contact data or
+  accepting requests even with an existing valid JWT. Banning Supabase Auth login
+  itself requires a separate trusted Auth admin action/hook; this migration does
+  not implement an Auth ban and the frontend check alone is not authorization.
 
 ---
 
@@ -100,6 +109,7 @@ One-to-one extension of `users` where `role = 'driver'`.
 | `approval_status` | enum `pending` \| `active` \| `rejected` \| `blocked` | ✔ | Admin-managed lifecycle |
 | `is_online` | boolean | ✔ | Feed visibility switch |
 | `online_since` | timestamptz | nullable | Set when going online, cleared when offline |
+| `completed_trips` | integer | ✔ | Default 0; only `confirm_trip_done` increments it, once per completed request |
 
 Lifecycle: `pending → active` (approve) · `pending → rejected` · `active → blocked` ·
 `blocked/rejected → active` (unblock). Going online requires `active`.
@@ -140,8 +150,12 @@ cancelled          open   (driver_id cleared)
 ```
 
 - Only the owning passenger may cancel while `status = open`.
-- Accept must be atomic (Supabase: RPC/transaction or RLS-guarded update with
-  `where status='open'`); first driver wins, others get `already_taken`.
+- Accept is atomic via `accept_request`: locks the driver's profile, verifies
+  `active`, online state, seats and zone, then conditionally updates an open request.
+  First driver wins; losing calls receive `df_already_taken`. Clients have no
+  direct INSERT/UPDATE/DELETE privileges on requests.
+- Only the owning passenger can confirm an accepted ride as done. Driver/admin
+  completion is forbidden. The same transaction increments `completed_trips` once.
 - A released request returns to the feed with `driver_id = null`.
 
 ### Privacy / field visibility matrix (critical for RLS policies)
@@ -197,7 +211,8 @@ liters       = effective_km × fuel_consumption / 100
 fuel_cost ₸  = liters × fuel_price_tenge_per_liter
 ```
 
-Example (Orkhovo): 22 km × 1.3 × 7.5 l/100km × 235 ₸ ≈ **505 ₸** fuel cost —
+Arithmetic example (not verified geography): 22 km × 1.3 × 7.5 l/100km × 235 ₸ =
+504.075 ₸, rounded to **504 ₸** fuel cost —
 which helps a driver judge whether a 1500 ₸ offer is profitable.
 
 ---
@@ -205,7 +220,8 @@ which helps a driver judge whether a 1500 ₸ offer is profitable.
 ## 9. API surface (frontend contract)
 
 `js/api.js` exposes `window.JAILAU_API` — the single point of all data access.
-The Supabase implementation must keep these signatures (all return Promises):
+The Supabase implementation must keep these signatures (all return Promises
+except the synchronous `estimateFuelCost` helper):
 
 | Function | Args | Returns | Notes |
 |---|---|---|---|
@@ -222,7 +238,7 @@ The Supabase implementation must keep these signatures (all return Promises):
 | `getDriverStatus` | – | `{is_online, approval_status, zone_name, …}` | own profile |
 | `acceptRequest` | `request_id` | decorated request | atomic; fails `df_already_taken` |
 | `releaseRequest` | `request_id` | decorated request | own `accepted` only |
-| `confirmTripDone` | `request_id` | decorated request | own `accepted` only |
+| `confirmTripDone` | `request_id` | decorated request | owning passenger only; `accepted` → `done`; increments assigned driver's counter once |
 | `setDriverOnline` | `boolean` | `{is_online, online_since}` | requires `active` |
 | `listOnlineDriversByVillage` | `village_id` | `[{name, car_brand, seats, online_since}]` | **phones excluded by design** |
 | `listDriverAcceptedRequests` | – | decorated requests[] | viewer=`driver-owner`, passenger phone revealed |
@@ -249,8 +265,19 @@ can translate it directly.
 3. Implement `acceptRequest` as a Postgres RPC (`security definer`) for atomic first-wins.
 4. Put the project URL + **anon key only** into `js/config.js` (never service_role).
 5. Replace bodies of `js/api.js` with supabase-js calls; keep exports identical.
-6. Flip `DEMO_MODE` to `false` — the banner disappears automatically when false.
-7. Real auth: Supabase email/password or later OTP; remove `passwordHash` from mock.
+6. Keep `DEMO_MODE = true` until the real adapter and live security checks pass.
+   Keys alone must never remove the banner.
+7. Real auth: Supabase phone/password for the agreed pilot; no password/hash column
+   in `public.users`. Without SMS there is no proof of phone ownership, so use
+   trusted test accounts and agree a recovery process before enrolling real users.
+8. `complete_profile` uses the authenticated user's phone from `auth.users`, never
+   a phone or role taken blindly from editable metadata. It permits only passenger
+   or driver creation, once. Admin is appointed out-of-band by the owner.
+9. Paginate request lists (`list_requests` defaults to 50 rows, caps at 100).
+10. Never include phone numbers in pickup/comment/name fields: free text is visible
+    to approved drivers in the zone before acceptance. Add a user notice and
+    input checks in the real adapter; structural phone privacy cannot protect a
+    phone someone deliberately types into public request text.
 
 ---
 

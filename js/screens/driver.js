@@ -58,7 +58,7 @@
           '<p class="refresh-note" id="refresh-note"></p>' +
           '<div id="feed-list"><p class="muted">' + esc(t("loading")) + '</p></div>';
 
-        var currentProfile = { is_online: false, zoneName: "" };
+        var currentProfile = { is_online: false, zoneName: "", fuel_consumption: null };
 
         function renderOnlineBox(profileInfo, zoneName) {
           var box = container.querySelector("#online-box");
@@ -98,7 +98,7 @@
                 esc(currentProfile.is_online ? t("df_empty") : t("df_must_be_online")) + '</div>';
               return;
             }
-            list.innerHTML = requests.map(feedCardHtml).join("");
+            list.innerHTML = requests.map(function (r) { return feedCardHtml(r, currentProfile.fuel_consumption); }).join("");
             bindFeedActions(container, list);
           }).catch(function (err) {
             if (!container.querySelector("#feed-list")) return;
@@ -117,6 +117,7 @@
             return;
           }
           currentProfile.is_online = status.is_online;
+          currentProfile.fuel_consumption = status.fuel_consumption;
           currentProfile.zoneName = status.zone_name ? ln(status.zone_name) : "";
           renderOnlineBox({ is_online: currentProfile.is_online }, currentProfile.zoneName);
           loadFeed();
@@ -136,7 +137,7 @@
       });
   }
 
-  function feedCardHtml(r) {
+  function feedCardHtml(r, consumption) {
     var dirLabel = r.direction === "village_to_city" ? t("df_direction_to_city") : t("df_direction_from_city");
     var dirClass = r.direction === "village_to_city" ? "" : " reverse";
     var whenText = r.when === "asap" ? t("df_when_asap") : fmtDateTime(r.datetime);
@@ -148,7 +149,7 @@
       ? '<div class="tariff-hint">💡 ' + esc(t("df_tariff_suggested", { price: fmtMoney(r.suggested_tariff) })) + '</div>'
       : "";
 
-    var calc = API.estimateFuelCost(r.km_to_city || 0, null);
+    var calc = API.estimateFuelCost(r.km_to_city || 0, consumption);
     var calcHtml = '<div class="calc-line">' + esc(t("df_calc_line", {
       km: calc.km,
       coef: calc.coefficient,
@@ -219,20 +220,6 @@
       html += '<div class="privacy-note">💵 ' + esc(t("dt_payment_note")) + '</div>';
       container.innerHTML = html;
 
-      container.querySelectorAll("[data-done]").forEach(function (btn) {
-        btn.addEventListener("click", function () {
-          var id = btn.getAttribute("data-done");
-          btn.disabled = true;
-          API.confirmTripDone(id).then(function () {
-            window.JAILAU_APP.toast(t("df_trip_done_msg"), "success");
-            renderMyRequests(container);
-          }).catch(function () {
-            btn.disabled = false;
-            window.JAILAU_APP.toast(t("error_generic"), "error");
-          });
-        });
-      });
-
       container.querySelectorAll("[data-release]").forEach(function (btn) {
         btn.addEventListener("click", function () {
           var id = btn.getAttribute("data-release");
@@ -266,7 +253,7 @@
     var actions = readonly ? "" : '' +
       '<div class="btn-group">' +
         '<button class="btn btn-secondary btn-sm" data-release="' + r.id + '">' + esc(t("df_release")) + '</button>' +
-        '<button class="btn btn-primary btn-sm" data-done="' + r.id + '">' + esc(t("df_confirm_done")) + '</button>' +
+        '<span class="small muted">' + esc(t("trip_waiting_passenger")) + '</span>' +
       '</div>';
 
     return '' +

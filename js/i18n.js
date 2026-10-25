@@ -193,7 +193,7 @@
       ad_village_name_kz: "Село (каз)",
       ad_village_lat: "Широта",
       ad_village_lng: "Долгота",
-      ad_village_km: "Км до Шымкента",
+      ad_village_km: "До Шымкента по прямой, км",
       ad_add_village: "Добавить село",
       ad_zone_col_names: "Названия",
       ad_villages_of_zone: "Сёла зоны «{zone}»",
@@ -398,7 +398,7 @@
       ad_village_name_kz: "Ауыл (қазақ)",
       ad_village_lat: "Ендік",
       ad_village_lng: "Ұзындық",
-      ad_village_km: "Шымкентке км",
+      ad_village_km: "Шымкентке түзу сызықпен, км",
       ad_add_village: "Ауыл қосу",
       ad_zone_col_names: "Атаулары",
       ad_villages_of_zone: "«{zone}» аймағының ауылдары",
@@ -420,6 +420,17 @@
 
   var currentLang = window.JAILAU_CONFIG.DEFAULT_LANG;
 
+  DICT.ru.trip_waiting_passenger = "Поездку подтверждает пассажир";
+  DICT.kz.trip_waiting_passenger = "Сапарды жолаушы растайды";
+  DICT.ru.driver_online = "На линии";
+  DICT.kz.driver_online = "Желіде";
+  DICT.ru.road_coefficient_hint = "1,3 означает прибавку 30% к расстоянию по прямой; это приблизительная оценка.";
+  DICT.kz.road_coefficient_hint = "1,3 түзу қашықтыққа 30% қосады; бұл шамамен алынған есеп.";
+  DICT.ru.main_navigation = "Основная навигация";
+  DICT.kz.main_navigation = "Негізгі навигация";
+  DICT.ru.switch_language = "Сменить язык";
+  DICT.kz.switch_language = "Тілді ауыстыру";
+
   function t(key, params) {
     var table = DICT[currentLang] || DICT.ru;
     var str = table[key];
@@ -437,7 +448,7 @@
 
   function setLang(lang) {
     if (DICT[lang]) currentLang = lang;
-    document.documentElement.lang = currentLang;
+    document.documentElement.lang = currentLang === "kz" ? "kk" : "ru";
     applyI18nAttributes(document);
     var toggleBtn = document.getElementById("lang-toggle");
     if (toggleBtn) toggleBtn.textContent = currentLang === "ru" ? "KZ" : "RU";
