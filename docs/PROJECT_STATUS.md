@@ -33,8 +33,9 @@ Updated: 2026-10-25
 
 ## Next
 
-1. Owner creates/selects a new empty Supabase Free project and applies schema
-   following `docs/SUPABASE_SETUP.md`; no secret sharing is necessary.
+1. Supabase project selected and connected through the plugin; the initial schema
+   was already installed. Cloud SQL role/access checks passed; see
+   `docs/SUPABASE_LIVE_CHECK.md`. Do not rerun the initial schema.
 2. Integrate the real adapter in `js/api.js` with session persistence disabled.
 3. Test Supabase Auth/PostgREST, two simultaneous acceptance/completion calls,
    blocked sessions, and recovery/ownership of phone-based accounts.
@@ -51,5 +52,8 @@ Updated: 2026-10-25
 - `docs/REVIEW_2026-10-25.md`: findings, changes, checks and remaining limitations.
 - Run checks: `pnpm install --frozen-lockfile --ignore-scripts`, then
   `node --test tests/*.test.cjs` and `node tests/audit.cjs`.
-- Supabase has not been connected or changed. Site remains demo-only.
+- Supabase is connected. Existing schema inspected; disposable cloud SQL tests
+  were rolled back. Auth accounts, app users, and requests remain empty.
+- Real Auth/HTTP integration and simultaneous transaction checks remain pending.
+- Site remains demo-only.
 - Cloudflare is not configured; nothing has been published.
