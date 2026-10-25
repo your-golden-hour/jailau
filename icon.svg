@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Jailau logo: green hills with a low sun">
+  <!-- background -->
+  <rect width="512" height="512" rx="96" fill="#F4F8F1"/>
+  <!-- low sun over the horizon (jailau pasture at dusk) -->
+  <circle cx="256" cy="238" r="72" fill="#D9B96C"/>
+  <!-- far hill -->
+  <path d="M0 330 C 90 250, 180 250, 260 320 S 430 380, 512 300 L512 512 L0 512 Z" fill="#2E6B3F"/>
+  <!-- near hill -->
+  <path d="M0 400 C 120 320, 250 350, 340 400 S 470 450, 512 410 L512 512 L0 512 Z" fill="#1F4A2B"/>
+  <!-- small road hint -->
+  <path d="M232 512 C 240 460, 252 430, 268 400" stroke="#F4F8F1" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.85"/>
+</svg>
