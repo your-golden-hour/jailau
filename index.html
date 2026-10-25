@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Жайлау — бесплатная платформа, соединяющая сёла и таксистов рядом с Шымкентом. Jailau connects rural villages with local taxi drivers.">
+  <meta name="theme-color" content="#2E6B3F">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Jailau">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <title>Jailau — Жайлау</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <header id="topbar" class="topbar">
+      <div class="topbar-left">
+        <img src="icon.svg" alt="Jailau logo" class="topbar-logo">
+        <span class="topbar-title" data-i18n="app_name">Jailau</span>
+      </div>
+      <div class="topbar-right">
+        <button id="lang-toggle" class="btn btn-ghost btn-lang" type="button" aria-label="Switch language">RU/KZ</button>
+      </div>
+    </header>
+
+    <div id="demo-banner" class="demo-banner" role="alert">
+      <strong data-i18n="demo_badge">ДЕМО РЕЖИМ</strong>
+      <span data-i18n="demo_banner_text">Демонстрационные данные. Реальных поездок пока нет.</span>
+    </div>
+
+    <main id="screen" class="screen" role="main"></main>
+
+    <nav id="bottom-nav" class="bottom-nav" aria-label="Main navigation"></nav>
+  </div>
+
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- Load order matters: config -> i18n -> api -> screens -> app (router bootstraps last) -->
+  <script src="js/config.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/screens/auth.js"></script>
+  <script src="js/screens/passenger.js"></script>
+  <script src="js/screens/driver.js"></script>
+  <script src="js/screens/admin.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    // Register the offline shell service worker (harmless on file:// or unsupported browsers)
+    if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("service-worker.js").catch(function () { /* demo: ignore */ });
+      });
+    }
+  </script>
+</body>
+</html>
