@@ -5,13 +5,18 @@ Repository: https://github.com/your-golden-hour/jailau. Current review branch:
 `codex/website-rebuild`, PR #4. `release`/Cloudflare must not be changed before
 the owner's explicit approval.
 
-## Current change in progress (not yet live)
+## Current change in progress (database applied; website not published)
 
-- `202610260002_driver_lines_and_offers.sql` is written and passes local PGlite
-  tests, but **has not been applied to Supabase**. The connector's automatic
-  approval review hit its usage limit on 2026-10-26. Do not claim that the new
-  line/offer features work in the cloud until the migration is applied and
-  verified. The local review branch may show an update-required message meanwhile.
+- The owner applied `202610260002_driver_lines_and_offers.sql` in Supabase SQL
+  Editor on 2026-10-26. Read-only live verification found `offered_at`,
+  `online_location`, all six expected new/updated RPC signatures, the new
+  constraints, and RLS on users, drivers, and requests. All five pre-existing
+  test requests remain, including two accepted ones. `anon` has no direct
+  request access or EXECUTE on the new RPCs; `authenticated` has no direct
+  request UPDATE grant. A no-session RPC smoke test returned zero private rows.
+- This is structural/permission verification, **not** a full live two-account
+  ride test. The frontend is still a local/review build; nothing was promoted
+  to `release` or published.
 - New workflow: driver sends an offer; only the passenger accepts or declines.
   Contact phones remain hidden until the passenger accepts. Offered/accepted
   seats count against the same two-hour capacity window. The seat-limit error
@@ -26,9 +31,10 @@ the owner's explicit approval.
   lacks several Kazakh glyphs, so the CSS stack falls back to device Noto Sans
   or system sans for those letters; the RU/KZ browser preview rendered them.
   Full low-end Android glyph QA remains to do. No new paid service.
-- Local suite: 17 tests pass, including offer privacy/decline, line expiry,
-  mode filtering, seat error, district reapproval, and bilingual UI. Live
-  migration/real-browser flow still require follow-up.
+- Local suite: 17 tests pass after live migration, including offer
+  privacy/decline, line expiry, mode filtering, seat error, district
+  reapproval, and bilingual UI. The real-browser two-account flow still
+  requires follow-up.
 
 ## Implemented in the review branch
 
@@ -59,7 +65,7 @@ the owner's explicit approval.
   whichever is later; completion increments the counter once.
 - Seven public tables have RLS. Local PGlite test exercises roles, private phone
   reveal, zone/approval restrictions, seat limit, completion delay, and counter.
-  All 14 automated tests pass. Static PWA shell avoids caching API responses.
+  All 17 automated tests pass. Static PWA shell avoids caching API responses.
 
 ## Decisions and limitations
 
@@ -82,15 +88,17 @@ the owner's explicit approval.
 
 ## Next checks
 
-1. Apply `202610260002_driver_lines_and_offers.sql` through the Supabase
-   connector when approval access returns, or have the owner apply the exact
-   file in Supabase SQL Editor. Then verify columns/functions and test data.
-2. Check village/city modes, offer accept/decline, district reapproval, and
+1. Check village/city modes, offer accept/decline, district reapproval, and
    live 30-minute expiry with disposable accounts.
-3. Test two concurrent offers against live cloud, scheduling boundaries,
+2. Test two concurrent offers against live cloud, scheduling boundaries,
    completion at one hour, mobile slow-network behavior, and app installability.
-4. Review PR #4, then ask owner before promoting to protected `release` and
+3. Review PR #4, then ask owner before promoting to protected `release` and
    publishing Cloudflare Pages. Disable preview deploys for unreviewed branches.
+
+Security Advisor currently flags 13 intentional signed-in `SECURITY DEFINER`
+RPCs, which must retain explicit in-function authorization, and disabled leaked
+password protection. Performance Advisor has non-blocking index/RLS policy
+optimization suggestions. Review these before a real-user pilot.
 
 See `docs/SUPABASE_SETUP.md` for setup and owner-only actions. Run
 `node --test tests/*.test.cjs`, `node tests/audit.cjs`, and `git diff --check`.

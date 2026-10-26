@@ -5,13 +5,10 @@ The original `supabase/schema.sql` is already installed; do not run it again.
 Migration `supabase/migrations/202610260001_email_profile_capacity.sql` was applied
 through the connected Supabase project. Do not reapply it.
 Migration `supabase/migrations/202610260002_driver_lines_and_offers.sql` is
-prepared but **not yet applied**: the connected tool's automatic approval
-review reached its usage limit. The local code needs this migration before
-the new driver line and two-sided offer screens can function. To apply it
-manually, open Supabase → SQL Editor → New query, paste the complete contents
-of that exact file, run it once, and check for a success message. Do not run
-`schema.sql` again. No secret or service-role key is needed in chat. If an
-error appears, stop and share only its error text (not credentials).
+applied by the owner through SQL Editor and was structurally verified on
+2026-10-26. Do not reapply either migration or `schema.sql`. Five old test
+requests remain. The real two-account ride flow is not yet verified. No secret
+or service-role key is needed in chat.
 
 ## Authentication
 
@@ -45,7 +42,7 @@ error appears, stop and share only its error text (not credentials).
 - The offer RPC locks the driver row, then the request row, and counts seats
   for overlapping two-hour windows. Later scheduled rides can be offered.
   Two hours is a pilot assumption, not verified journey duration.
-- After migration 002, driver village/city lines are effective for 30 minutes.
+- Driver village/city lines are effective for 30 minutes.
   Passenger consent is required after a driver offers a ride; contacts open
   only after consent. District changes require fresh admin approval.
 - Only the passenger can confirm completion, at least one hour after acceptance
@@ -53,9 +50,12 @@ error appears, stop and share only its error text (not credentials).
   counter exactly once.
 - Phones become visible to the matched passenger and driver only after the
   passenger accepts the driver's offer.
-- Security Advisor warns about exposed `SECURITY DEFINER` RPCs. Those ten RPCs are
+- Security Advisor warns about exposed `SECURITY DEFINER` RPCs. Those thirteen RPCs are
   intentional and implement explicit authorization. Review each when changing it:
   https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable
+- Security Advisor also reports leaked-password protection is disabled. Check
+  whether it is available on the project's free plan before a real-user pilot:
+  https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
 - The project has test users, one verified zone/village, and test requests.
   Preserve existing accepted rides when applying migration 002. Do not import
   mock places: verify real geography before entering more pilot data.
