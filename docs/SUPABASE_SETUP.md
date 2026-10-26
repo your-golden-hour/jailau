@@ -24,11 +24,11 @@ functions were verified to use 10 minutes; five existing requests remain.
   client, enter its client ID/secret directly in the Supabase dashboard, and enable
   the provider. Do not share the Google secret, database password, or service-role
   key in chat or GitHub.
-- Authentication → URL Configuration currently has Site URL
-  `http://localhost:3000` and no additional Redirect URLs. For local testing,
-  serve on port 3000 and open **`http://localhost:3000/`**, not `127.0.0.1`.
-  Before any approved production deployment, allow the exact `.pages.dev` URL
-  for email and OAuth redirects. Keep the allowlist narrow.
+- Authentication → URL Configuration has Site URL
+  `https://jailau.pages.dev/` and exactly two Redirect URLs:
+  `https://jailau.pages.dev/` and `http://localhost:3000/`. These were
+  verified after saving. For local testing, serve on port 3000 and open
+  **`http://localhost:3000/`**, not `127.0.0.1`. Keep the allowlist narrow.
 - Phone Auth is not used. The user enters a contact number after email/Google
   login, confirms its spelling in the UI, and can edit it in Profile. The unique
   `users.phone` constraint prevents duplicate numbers; it does **not** prove
@@ -65,7 +65,7 @@ functions were verified to use 10 minutes; five existing requests remain.
 
 ## Owner actions before real-user pilot
 
-1. Run the site at `http://localhost:3000/` so email confirmation returns to it.
+1. Open `https://jailau.pages.dev/` on a device with internet access.
 2. Register a test email account using only the email field, follow the link,
    create a password, and enter a contact number. Check that Profile displays
    the number and can change it.
@@ -76,8 +76,9 @@ functions were verified to use 10 minutes; five existing requests remain.
    account-owner actions.
 5. Test both route directions, driver approval, concurrent acceptance, seat
    limits, and the one-hour confirmation boundary with disposable test users.
-6. Obtain legal/privacy advice before using real people's data. Do not publish
-   until the owner explicitly approves the reviewed `release` version.
+6. Obtain legal/privacy advice before using real people's data. The public
+   beta is already online, but a real-user pilot should wait for the live
+   two-account checks and reviewed legal terms.
 
 For a **new empty** Supabase project, run `supabase/schema.sql` once, then the
 numbered migrations in order before use. Then set
