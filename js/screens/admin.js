@@ -146,10 +146,10 @@
 
   function bindDriverActions(box, body) {
     var ACTIONS = [
-      { selector: "[data-approve]", attr: "approve", fn: API.adminApproveDriver },
-      { selector: "[data-reject]",  attr: "reject",  fn: API.adminRejectDriver },
-      { selector: "[data-block]",   attr: "block",   fn: API.adminBlockDriver },
-      { selector: "[data-unblock]", attr: "unblock", fn: API.adminUnblockDriver }
+      { selector: "[data-approve]", attr: "data-approve", fn: API.adminApproveDriver },
+      { selector: "[data-reject]",  attr: "data-reject",  fn: API.adminRejectDriver },
+      { selector: "[data-block]",   attr: "data-block",   fn: API.adminBlockDriver },
+      { selector: "[data-unblock]", attr: "data-unblock", fn: API.adminUnblockDriver }
     ];
     ACTIONS.forEach(function (a) {
       box.querySelectorAll(a.selector).forEach(function (btn) {

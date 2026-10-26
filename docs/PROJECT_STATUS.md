@@ -21,6 +21,9 @@ the owner's explicit approval.
 - Passenger home has clear village→Shymkent and Shymkent→village choices with
   original city/yurt SVG icons. The redundant eyebrow was removed. The request
   form and driver feed already handle both directions; cards simplified.
+- Admin driver actions now read the matching `data-*` ID attribute before
+  calling the status RPC, so approve/reject/block/unblock target the selected
+  driver. The PWA shell cache was bumped to v8 for this update.
 - Database migration `supabase/migrations/202610260001_email_profile_capacity.sql`
   applied to cloud project `ubjcvqqxkgshguiwikqu`. Phone is unique contact data,
   not Auth identity. Old phone-based `complete_profile` signature has no client
@@ -42,9 +45,9 @@ the owner's explicit approval.
   their number. Calls/contact are only available after request acceptance.
 - Two-hour occupancy is a provisional journey window; tune against verified
   route times before wider use. The one-hour completion floor is server-enforced.
-- Supabase has zero real users, zones, villages, requests. Pilot rides cannot be
-  booked until verified geography and an admin are created. No mock geography
-  should be copied into cloud without verification.
+- Supabase has an admin account, one synthetic test driver awaiting approval,
+  and one configured zone/village. No pilot rides or passenger accounts have
+  been reported. Keep the test driver pending until explicitly approved.
 - Supabase Site URL is `http://localhost:3000` with no extra redirect URLs.
   A real email Magic Link/password setup walkthrough is still pending. Production URL must be
   allowlisted only after owner-approved deployment. OAuth needs owner setup.
