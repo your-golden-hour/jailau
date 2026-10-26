@@ -3,13 +3,14 @@
 Updated 2026-10-26. Codex owns development; Qwen and Qwen Coder are no longer used.
 Repository: https://github.com/your-golden-hour/jailau. Current review branch:
 `codex/website-rebuild`, PR #4. The owner explicitly approved beta v0.0.1
-publication on 2026-10-26; deployment is being prepared. Verified commit
-`9718350` was pushed to `release`; Cloudflare GitHub access is limited to this
-repository, with Pages setup selecting `release` and an allowlisted `dist/`
-build. Deployment has not been submitted yet. GitHub branch protection still
-needs to be verified after the owner's email confirmation.
+publication on 2026-10-26. Verified commit `97b88e8` is live at
+https://jailau.pages.dev/ from protected `release`. Cloudflare's GitHub app has
+access only to this repository. Pages builds the allowlisted `dist/` assets;
+automatic previews from other branches are disabled. GitHub classic protection
+for `release` requires a pull request and forbids administrator bypass; no
+approvals are required because there is one maintainer.
 
-## Current change in progress (database applied; website not published)
+## Current state (published beta)
 
 - The owner applied `202610260002_driver_lines_and_offers.sql` in Supabase SQL
   Editor on 2026-10-26. Read-only live verification found `offered_at`,
@@ -19,8 +20,9 @@ needs to be verified after the owner's email confirmation.
   request access or EXECUTE on the new RPCs; `authenticated` has no direct
   request UPDATE grant. A no-session RPC smoke test returned zero private rows.
 - This is structural/permission verification, **not** a full live two-account
-  ride test. The frontend is still a local/review build; `release` has the
-  verified beta but is not published yet.
+  ride test. The public login page, RU/KZ switch, terms page and production
+  commit were checked in a browser after Cloudflare deployment. No real
+  two-account ride or email-registration walkthrough has been completed.
 - Migration `202610260003_ten_minute_driver_line.sql` was applied through the
   Supabase connector. All six affected live functions use 10 minutes and
   retain no anonymous EXECUTE permission; five requests (two accepted) remain.
@@ -101,10 +103,10 @@ needs to be verified after the owner's email confirmation.
 - Supabase has a test admin, an active synthetic driver and one configured
   zone/village. The database contains test requests, including accepted ones.
   Preserve these while migrating; do not import fake geography.
-- Supabase Site URL is `http://localhost:3000` with no extra redirect URLs.
-  A real email Magic Link/password setup walkthrough is still pending. Production URL must be
-  allowlisted only after owner-approved deployment. OAuth needs owner setup.
-  No site was published.
+- Supabase Site URL is `https://jailau.pages.dev/`; exact redirect URLs for
+  production and `http://localhost:3000/` were saved and rechecked after a
+  dashboard reload. A real email Magic Link/password setup walkthrough is
+  still pending. Google OAuth needs owner setup.
 - Terms/privacy draft exists, but legal consultation is still needed before real
   passengers. License choice is still pending.
 
@@ -114,8 +116,9 @@ needs to be verified after the owner's email confirmation.
    live 10-minute expiry with disposable accounts.
 2. Test two concurrent offers against live cloud, scheduling boundaries,
    completion at one hour, mobile slow-network behavior, and app installability.
-3. Verify branch protection for `release`, publish Cloudflare Pages and disable preview deploys
-   for unreviewed branches. Configure the exact production Auth redirect URL.
+3. Test email signup and password setup with an owner-controlled mailbox, and
+   complete a two-account passenger/driver ride walkthrough before a real-user
+   pilot. Then iterate on the deferred ride-start and dispute lifecycle.
 
 Security Advisor currently flags 13 intentional signed-in `SECURITY DEFINER`
 RPCs, which must retain explicit in-function authorization, and disabled leaked
