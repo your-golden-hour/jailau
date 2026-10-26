@@ -13,6 +13,7 @@
 
   var REFRESH_SECONDS = 20;
   var refreshTimer = null;
+  var leaseTimer = null;
 
   function esc(s) {
     return String(s == null ? "" : s)
@@ -36,6 +37,7 @@
 
   function clearTimer() {
     if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+    if (leaseTimer) { clearInterval(leaseTimer); leaseTimer = null; }
   }
 
   /* ================= FEED ================= */
@@ -51,35 +53,75 @@
 
         container.innerHTML = '' +
           '<h1 class="screen-title">' + esc(t("df_title")) + '</h1>' +
+          '<a class="home-phone" href="#/profile">' + esc(t("home_your_phone", { phone: user.phone })) + '</a>' +
           '<div class="feed-header">' +
             '<div id="online-box"></div>' +
-            '<button id="btn-refresh" class="btn btn-ghost btn-sm">⟳ ' + esc(t("df_manual_refresh")) + '</button>' +
+            '<div class="feed-tools"><div id="online-counts" class="small muted"></div>' +
+            '<button id="btn-refresh" class="btn btn-ghost btn-sm">⟳ ' + esc(t("df_manual_refresh")) + '</button></div>' +
           '</div>' +
           '<p class="refresh-note" id="refresh-note"></p>' +
           '<div id="feed-list"><p class="muted">' + esc(t("loading")) + '</p></div>';
 
-        var currentProfile = { is_online: false, zoneName: "", fuel_consumption: null };
+        var currentProfile = { is_online: false, online_since: null, online_location: null,
+          zoneName: "", zone_id: null, fuel_consumption: null };
 
-        function renderOnlineBox(profileInfo, zoneName) {
+        function isActive() {
+          return currentProfile.is_online && currentProfile.online_since &&
+            Date.now() - new Date(currentProfile.online_since).getTime() < 10 * 60 * 1000;
+        }
+
+        function renderCountdown() {
+          var note = container.querySelector("#line-countdown");
+          if (!note) return;
+          if (!currentProfile.is_online) { note.textContent = t("df_online_off"); return; }
+          var remaining = Math.max(0, Math.ceil((new Date(currentProfile.online_since).getTime() + 10 * 60 * 1000 - Date.now()) / 60000));
+          if (!isActive()) {
+            currentProfile.is_online = false;
+            note.textContent = t("df_line_expired");
+            container.querySelectorAll("[data-line-mode]").forEach(function (button) { button.classList.remove("active"); });
+            return;
+          }
+          note.textContent = t("df_line_remaining", { minutes: remaining });
+        }
+
+        function loadCounts() {
+          if (!currentProfile.zone_id) return;
+          API.onlineDriverCounts(currentProfile.zone_id).then(function (counts) {
+            var node = container.querySelector("#online-counts");
+            if (node) node.textContent = t("df_online_counts", { village: counts.village || 0, city: counts.city || 0 });
+          }).catch(function () {
+            var node = container.querySelector("#online-counts");
+            if (node) node.textContent = t("error_generic");
+          });
+        }
+
+        function renderOnlineBox() {
           var box = container.querySelector("#online-box");
           if (!box) return;
           box.innerHTML = '' +
-            '<div class="card-row" style="margin-bottom:0">' +
-              '<div>' +
-                '<div class="card-title small">' + esc(t("df_online_toggle")) + '</div>' +
-                '<div class="card-meta">' + esc(zoneName ? t("df_zone_label") + ": " + zoneName : "") + '</div>' +
-              '</div>' +
-              '<button id="online-switch" class="switch' + (profileInfo.is_online ? " on" : "") + '" aria-label="' + esc(t("df_online_toggle")) + '"></button>' +
+            '<div class="card-title">' + esc(t("df_online_toggle")) + '</div>' +
+            '<div class="card-meta">' + esc(currentProfile.zoneName) + '</div>' +
+            '<div class="line-modes" role="group" aria-label="' + esc(t("df_online_toggle")) + '">' +
+              '<button type="button" class="line-mode' + (isActive() && currentProfile.online_location === "village" ? " active" : "") + '" data-line-mode="village">' + esc(t("df_line_village")) + '</button>' +
+              '<button type="button" class="line-mode' + (isActive() && currentProfile.online_location === "city" ? " active" : "") + '" data-line-mode="city">' + esc(t("df_line_city")) + '</button>' +
             '</div>' +
-            '<div class="card-meta mt-8">' + esc(profileInfo.is_online ? t("df_online_on") : t("df_online_off")) + '</div>';
-          box.classList.add("card");
-          box.querySelector("#online-switch").addEventListener("click", function () {
-            API.setDriverOnline(!currentProfile.is_online).then(function (updated) {
-              currentProfile.is_online = updated.is_online;
-              renderOnlineBox({ is_online: currentProfile.is_online }, currentProfile.zoneName);
-              loadFeed();
-            }).catch(function () {
-              window.JAILAU_APP.toast(t("df_need_approved"), "error");
+            '<p id="line-countdown" class="card-meta mt-8" role="status"></p>';
+          box.classList.add("card", "line-card");
+          renderCountdown();
+          box.querySelectorAll("[data-line-mode]").forEach(function (button) {
+            button.addEventListener("click", function () {
+              var mode = button.getAttribute("data-line-mode");
+              var turnOn = !(isActive() && currentProfile.online_location === mode);
+              box.querySelectorAll("button").forEach(function (b) { b.disabled = true; });
+              API.setDriverOnline(turnOn, mode).then(function (updated) {
+                currentProfile.is_online = updated.is_online;
+                currentProfile.online_since = updated.online_since;
+                currentProfile.online_location = updated.online_location;
+                renderOnlineBox(); loadFeed(); loadCounts();
+              }).catch(function (err) {
+                window.JAILAU_APP.toast(t(err && err.message || "error_generic"), "error");
+                renderOnlineBox();
+              });
             });
           });
         }
@@ -95,14 +137,14 @@
 
             if (!requests.length) {
               list.innerHTML = '<div class="empty-state"><span class="empty-icon">🛰️</span>' +
-                esc(currentProfile.is_online ? t("df_empty") : t("df_must_be_online")) + '</div>';
+                esc(isActive() ? t("df_empty") : t("df_must_be_online")) + '</div>';
               return;
             }
             list.innerHTML = requests.map(function (r) { return feedCardHtml(r, currentProfile.fuel_consumption); }).join("");
             bindFeedActions(container, list);
           }).catch(function (err) {
             if (!container.querySelector("#feed-list")) return;
-            var key = err && err.message === "df_need_approved" ? "df_need_approved" : "error_generic";
+          var key = err && (err.message === "df_need_approved" || err.message === "df_upgrade_required") ? err.message : "error_generic";
             list.innerHTML = '<div class="empty-state"><span class="empty-icon">⚠️</span>' + esc(t(key)) + '</div>';
           });
         }
@@ -117,20 +159,25 @@
             return;
           }
           currentProfile.is_online = status.is_online;
+          currentProfile.online_since = status.online_since;
+          currentProfile.online_location = status.online_location;
+          currentProfile.zone_id = status.zone_id;
           currentProfile.fuel_consumption = status.fuel_consumption;
           currentProfile.zoneName = status.zone_name ? ln(status.zone_name) : "";
-          renderOnlineBox({ is_online: currentProfile.is_online }, currentProfile.zoneName);
-          loadFeed();
+          renderOnlineBox();
+          loadFeed(); loadCounts();
           clearTimer();
-          refreshTimer = setInterval(loadFeed, REFRESH_SECONDS * 1000);
-        }).catch(function () {
+          refreshTimer = setInterval(function () { loadFeed(); loadCounts(); }, REFRESH_SECONDS * 1000);
+          leaseTimer = setInterval(renderCountdown, 10000);
+        }).catch(function (err) {
           if (!container.querySelector("#feed-list")) return;
           container.querySelector("#feed-list").innerHTML =
-            '<div class="empty-state"><span class="empty-icon">⚠️</span>' + esc(t("df_need_approved")) + '</div>';
+            '<div class="empty-state"><span class="empty-icon">⚠️</span>' +
+              esc(t(err && err.message === "df_upgrade_required" ? "df_upgrade_required" : "error_generic")) + '</div>';
         });
 
         var refreshBtn = container.querySelector("#btn-refresh");
-        if (refreshBtn) refreshBtn.addEventListener("click", function () { loadFeed(); });
+        if (refreshBtn) refreshBtn.addEventListener("click", function () { loadFeed(); loadCounts(); });
       })
       .catch(function () {
         container.innerHTML = '<div class="empty-state">' + esc(t("error_generic")) + '</div>';
@@ -145,19 +192,6 @@
       ? '<span class="price-tag negotiable">' + esc(t("mr_price_negotiable")) + '</span>'
       : '<span class="price-tag">' + esc(fmtMoney(r.price)) + '</span>';
 
-    var tariffHtml = r.suggested_tariff != null
-      ? '<div class="tariff-hint">💡 ' + esc(t("df_tariff_suggested", { price: fmtMoney(r.suggested_tariff) })) + '</div>'
-      : "";
-
-    var calc = API.estimateFuelCost(r.km_to_city || 0, consumption);
-    var calcHtml = '<div class="calc-line">' + esc(t("df_calc_line", {
-      km: calc.km,
-      coef: calc.coefficient,
-      fuel: calc.consumption,
-      fuelPrice: calc.fuel_price,
-      cost: calc.cost_tenge.toLocaleString("ru-RU")
-    })) + '</div>';
-
     return '' +
       '<div class="card" data-request-id="' + r.id + '">' +
         '<div class="card-row">' +
@@ -168,12 +202,9 @@
           (r.pickup_spot ? " · " + esc(r.pickup_spot) : "") + '</div>' +
         '<div class="card-meta">🕐 ' + esc(whenText) + ' · 👥 ' + esc(t("df_seats", { n: r.seats })) + '</div>' +
         '<div class="card-meta">👤 ' + esc(t("df_passenger", { name: r.passenger_name })) + '</div>' +
-        '<div class="card-meta small muted">🔒 ' + esc(t("df_phone_hidden")) + '</div>' +
         (r.comment ? '<div class="card-meta">💬 ' + esc(r.comment) + '</div>' : "") +
-        tariffHtml +
-        calcHtml +
         '<div class="btn-group">' +
-          '<button class="btn btn-primary btn-block" data-accept="' + r.id + '">' + esc(t("df_accept")) + '</button>' +
+          '<button class="btn btn-primary btn-block" data-accept="' + r.id + '">' + esc(t("df_offer")) + '</button>' +
         '</div>' +
       '</div>';
   }
@@ -184,11 +215,11 @@
         var id = btn.getAttribute("data-accept");
         btn.disabled = true;
         API.acceptRequest(id).then(function () {
-          window.JAILAU_APP.toast(t("df_accepted_msg"), "success");
+          window.JAILAU_APP.toast(t("df_offered_msg"), "success");
           renderFeed(container);
         }).catch(function (err) {
           btn.disabled = false;
-          var key = err && err.message === "df_already_taken" ? "df_already_taken" : "error_generic";
+          var key = err && (err.message === "df_already_taken" || err.message === "df_no_seats") ? err.message : "error_generic";
           window.JAILAU_APP.toast(t(key), "error");
           renderFeed(container);
         });
@@ -203,11 +234,16 @@
     container.innerHTML = '<p class="muted">' + esc(t("loading")) + '</p>';
 
     API.listDriverAcceptedRequests().then(function (reqs) {
+      var offered = reqs.filter(function (r) { return r.status === "offered"; });
       var active = reqs.filter(function (r) { return r.status === "accepted"; });
       var history = reqs.filter(function (r) { return r.status === "done"; });
 
       var html = '<h1 class="screen-title">' + esc(t("dt_title")) + '</h1>';
 
+      if (offered.length) {
+        html += '<h2 class="section-title">' + esc(t("dt_offered")) + '</h2>';
+        html += offered.map(driverTripCardHtml).join("");
+      }
       html += '<h2 class="section-title">' + esc(t("dt_active")) + '</h2>';
       if (active.length) html += active.map(driverTripCardHtml).join("");
       else html += '<div class="empty-state">' + esc(t("dt_empty")) + '</div>';
@@ -253,15 +289,16 @@
     var actions = readonly ? "" : '' +
       '<div class="btn-group">' +
         '<button class="btn btn-secondary btn-sm" data-release="' + r.id + '">' + esc(t("df_release")) + '</button>' +
-        '<span class="small muted">' + esc(t("trip_waiting_passenger")) + '</span>' +
+        '<span class="small muted">' + esc(t(r.status === "offered" ? "dt_waiting_offer" : "trip_waiting_passenger")) + '</span>' +
       '</div>';
 
     return '' +
       '<div class="card">' +
         '<div class="card-row">' +
           '<div class="card-title">🚗 ' + esc(t("dt_route", { from: from, to: to })) + '</div>' +
-          priceHtml +
+          (readonly ? '<span class="badge badge-done">✓ ' + esc(t("mr_status_done")) + '</span>' : priceHtml) +
         '</div>' +
+        (readonly ? '<div class="card-meta">' + esc(t("dt_completed_at", { time: fmtDateTime(r.done_at) })) + '</div>' : '') +
         '<div class="card-meta">🕐 ' + esc(whenText) + ' · 👥 ' + esc(t("df_seats", { n: r.seats })) + '</div>' +
         '<div class="card-meta">👤 ' + esc(t("df_passenger", { name: r.passenger_name })) + '</div>' +
         (r.pickup_spot ? '<div class="card-meta">📍 ' + esc(r.pickup_spot) + '</div>' : "") +

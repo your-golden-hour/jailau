@@ -1,137 +1,86 @@
-# Настройка Supabase для тестового проекта
+# Supabase setup for Jailau
 
-Состояние на 25 октября 2026: схема уже существует в выбранном облачном проекте,
-проверки SQL-доступа прошли через плагин Supabase. Подробности и ограничения —
-в `docs/SUPABASE_LIVE_CHECK.md`. Повторно выполнять начальную схему в этом проекте
-не нужно. Инструкция ниже предназначена для нового пустого проекта. Сайт пока
-использует демо-данные в памяти; ключи сами по себе ничего не подключают.
+Updated 2026-10-26. The selected project is `ubjcvqqxkgshguiwikqu`.
+The original `supabase/schema.sql` is already installed; do not run it again.
+Migration `supabase/migrations/202610260001_email_profile_capacity.sql` was applied
+through the connected Supabase project. Do not reapply it.
+Migration `supabase/migrations/202610260002_driver_lines_and_offers.sql` is
+applied by the owner through SQL Editor and was structurally verified on
+2026-10-26. Do not reapply either migration or `schema.sql`. Five old test
+requests remain. The real two-account ride flow is not yet verified. No secret
+or service-role key is needed in chat.
+Migration `supabase/migrations/202610260003_ten_minute_driver_line.sql` was
+applied through the connected Supabase project on 2026-10-26. All six affected
+functions were verified to use 10 minutes; five existing requests remain.
 
-## Что делает владелец аккаунта
+## Authentication
 
-1. Войдите на https://supabase.com/dashboard. Создайте проект в организации с
-   тарифом Free. Если предлагают платную функцию, не подключайте её.
-2. Задайте пароль базы и сохраните его у себя. Не отправляйте пароль в чат.
-3. Для этой первой миграции используйте **новый пустой проект**. Если в проекте
-   уже есть таблицы/пользователи, сначала нужна отдельная миграция. Не удаляйте их.
-4. Откройте SQL Editor → New query. Скопируйте весь `supabase/schema.sql`, нажмите Run
-   один раз. Если будет ошибка, передайте только текст ошибки без ключей и данных людей.
-5. В Table Editor проверьте семь таблиц: `zones`, `villages`, `users`,
-   `driver_profiles`, `requests`, `tariffs`, `settings`. На каждой должен быть включён RLS.
-   Только `settings` имеет начальную строку. Людей и сёла скрипт не создаёт.
-6. В настройках Data API оставьте `jailau_private` вне списка exposed schemas.
-   Не добавляйте эту схему для удобства запросов и не отключайте RLS.
-7. В Authentication → Providers/Sign In настройте Phone + Password для тестов.
-   Подтверждение по SMS требует отдельного провайдера и может стоить денег.
-   Для согласованного бесплатного теста без SMS номер НЕ считается подтверждённым.
-   Начинайте с доверенных участников. Публичная регистрация и восстановление
-   доступа требуют отдельного согласованного решения.
-8. До реальной интеграции можно завести тестовый аккаунт в Authentication → Users.
-   Он ещё не появится в `public.users`: после входа адаптер вызовет `complete_profile`.
-   При создании Auth-аккаунта через панель задайте тестовый номер; email-only
-   аккаунт эту телефонную миграцию не пройдёт.
-9. Первый администратор назначается владельцем через SQL Editor после появления
-   профиля пассажира. Подставьте UUID своего тестового Auth-пользователя:
+- Registration asks only for an email and calls Supabase `signInWithOtp` to send
+  a one-time Magic Link. After the link creates a verified session, Profile
+  completion asks for a password (8+ characters), name, phone, and role. Returning
+  users sign in with email/password. Passwords stay in Supabase Auth.
+- Google OAuth is coded in the browser, but its Supabase provider is **disabled**.
+  Only the project owner can configure a Google Cloud OAuth consent screen and web
+  client, enter its client ID/secret directly in the Supabase dashboard, and enable
+  the provider. Do not share the Google secret, database password, or service-role
+  key in chat or GitHub.
+- Authentication → URL Configuration has Site URL
+  `https://jailau.pages.dev/` and exactly two Redirect URLs:
+  `https://jailau.pages.dev/` and `http://localhost:3000/`. These were
+  verified after saving. For local testing, serve on port 3000 and open
+  **`http://localhost:3000/`**, not `127.0.0.1`. Keep the allowlist narrow.
+- Phone Auth is not used. The user enters a contact number after email/Google
+  login, confirms its spelling in the UI, and can edit it in Profile. The unique
+  `users.phone` constraint prevents duplicate numbers; it does **not** prove
+  ownership. There is no SMS and no phone-based password recovery.
+- A fresh authenticated account without a `public.users` row is routed to
+  Profile completion. Driver registration requires a zone, vehicle, plate, and
+  seat count. Admin approval is still required before taking requests.
 
-```sql
-update public.users
-set role = 'admin'
-where id = 'REPLACE_WITH_YOUR_AUTH_USER_UUID'::uuid
-  and role = 'passenger';
-```
+## Data and security
 
-Это повышает права только выбранного профиля. Ввод `admin` при регистрации запрещён.
-Ключ `service_role` для этой настройки не нужен. Настоящие имена, телефоны и UUID
-не включайте в коммиты.
+- All seven application tables have RLS. `jailau_private` must stay outside
+  exposed schemas. Normal ride mutations call database RPCs; the browser must
+  never update `requests.status` or trip counters directly.
+- The offer RPC locks the driver row, then the request row, and counts seats
+  for overlapping two-hour windows. Later scheduled rides can be offered.
+  Two hours is a pilot assumption, not verified journey duration.
+- Driver village/city lines are effective for 10 minutes.
+  Passenger consent is required after a driver offers a ride; contacts open
+  only after consent. District changes require fresh admin approval.
+- Only the passenger can confirm completion, at least one hour after acceptance
+  or the scheduled start, whichever is later. The database increments the driver
+  counter exactly once.
+- Phones become visible to the matched passenger and driver only after the
+  passenger accepts the driver's offer.
+- Security Advisor warns about exposed `SECURITY DEFINER` RPCs. Those thirteen RPCs are
+  intentional and implement explicit authorization. Review each when changing it:
+  https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable
+- Security Advisor also reports leaked-password protection is disabled. Check
+  whether it is available on the project's free plan before a real-user pilot:
+  https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
+- The project has test users, one verified zone/village, and test requests.
+  Preserve existing accepted rides when applying migration 002. Do not import
+  mock places: verify real geography before entering more pilot data.
 
-10. Через будущую админку либо Table Editor добавьте проверенные зоны и сёла.
-    Демо-география из JS не проверена и в SQL не переносится. `km_to_city` —
-    расстояние **по прямой** до согласованной точки Шымкента. Коэффициент 1,3
-    применяется один раз. Значения 235 ₸/л и 8 л/100 км — примерные настройки,
-    а не проверенные текущие цены или расход конкретного автомобиля.
-11. Публичные Project URL и anon/publishable key можно использовать в браузере
-    после реализации адаптера. `service_role`, secret key и пароль базы — только
-    у владельца, никогда в чат, JS или GitHub. Этот этап не требует их передачи.
+## Owner actions before real-user pilot
 
-## Как подключать браузерный API в следующем этапе
+1. Open `https://jailau.pages.dev/` on a device with internet access.
+2. Register a test email account using only the email field, follow the link,
+   create a password, and enter a contact number. Check that Profile displays
+   the number and can change it.
+3. Create verified zones/villages through an admin account. Promote only your
+   own already-created `public.users` row to admin in SQL Editor by its UUID.
+4. Configure Google OAuth only if you want it now; no purchase is needed to
+   keep email login. Google Cloud setup and Supabase provider credentials are
+   account-owner actions.
+5. Test both route directions, driver approval, concurrent acceptance, seat
+   limits, and the one-hour confirmation boundary with disposable test users.
+6. Obtain legal/privacy advice before using real people's data. The public
+   beta is already online, but a real-user pilot should wait for the live
+   two-account checks and reviewed legal terms.
 
-Все экраны продолжают обращаться к `window.JAILAU_API`. Оставить пароли только в
-Supabase Auth; удалить mock `passwordHash` и демо-аккаунты из реального адаптера.
-При создании клиента задать `auth.persistSession: false`, чтобы сессия не попадала
-в localStorage; после перезагрузки понадобится новый вход. Не логировать пароли,
-JWT или ответы с телефонами. Пользовательские строки экранировать при выводе HTML.
-
-| Браузерный метод | Запрос к базе |
-|---|---|
-| `signUp` | Auth `signUp({phone,password})`, затем `complete_profile(p_name,p_role,p_village_id,p_driver)` при наличии сессии |
-| `signIn` / `signOut` | Supabase Auth; при blocked-профиле завершить сессию и показать общий отказ |
-| `getCurrentUser` | Auth session + своя строка `users`; незавершённый профиль предложить завершить |
-| `setUserVillage` | UPDATE только своего `users.village_id` |
-| `listZonesAndVillages` | SELECT zones/villages/tariffs; собрать вложенный объект |
-| `createRequest` | `create_request` с параметрами `p_*`; вернуть заявку из списка mine |
-| `listMyRequests` | `list_requests(p_kind: 'mine')` |
-| `listOpenRequestsForDriver` | `list_requests(p_kind: 'feed')`; проверять статус/online для понятных ошибок |
-| `listDriverAcceptedRequests` | `list_requests(p_kind: 'driver')` |
-| `acceptRequest` | `accept_request(p_request_id)`; затем обновить список driver |
-| `cancelRequest` | `cancel_request(p_request_id)`; затем обновить список mine |
-| `releaseRequest` | `release_request(p_request_id)`; вернуть `{id,status:'open'}`: отпущенная заявка больше не принадлежит водителю |
-| `confirmTripDone` | `confirm_trip_done(p_request_id)`; только пассажир, затем список mine |
-| `getDriverStatus` | SELECT своего driver_profiles + zone.name |
-| `setDriverOnline` | `set_driver_online(p_online)` |
-| `listOnlineDriversByVillage` | `list_online_drivers(p_village_id)`; без телефонов и госномеров |
-| `adminApprove/Reject/Block/UnblockDriver` | `admin_set_driver_status(p_user_id,p_status)`; затем перечитать профиль |
-| `adminListDrivers` | SELECT driver_profiles/users/zones (RLS разрешает администратору) |
-| `adminAddZone` / `adminAddVillage` | INSERT в zones/villages |
-| `adminSetTariff` | UPSERT tariffs по village_id |
-| `adminSaveSettings` | UPDATE строки settings с id='default' |
-| `getSettings` | SELECT строки settings с id='default' |
-| `estimateFuelCost` | Синхронный расчёт по загруженным настройкам и расходу водителя |
-
-SQL-мутации заявок возвращают UUID, а не объект карточки: адаптер перечитывает
-список. `list_requests` возвращает массив JSON-объектов; использовать пагинацию
-`p_limit`/`p_offset` (50 по умолчанию, максимум 100). Предусмотреть ситуацию, когда
-заявка уже изменилась между мутацией и обновлением списка.
-
-У `estimateFuelCost` синхронный результат, несмотря на старую формулировку
-контракта «все функции возвращают Promise». Supabase-ошибки преобразовать в
-существующие i18n-ключи; подробности SQL пользователю не показывать.
-
-## Что защищает схема
-
-- Сырые профили доступны только себе и администратору. Водитель не может получить
-  чужой телефон прямым SELECT `users`.
-- Телефоны карточек выдаются серверной функцией только участникам принятой или
-  завершённой заявки. После release следующие ответы их скрывают. Уже увиденный
-  человеком номер технически невозможно «забрать обратно».
-- Доступ к ленте и принятию проверяет одобрение, online, зону; принятие также
-  проверяет вместимость. Заблокированный водитель сразу теряет доступ к заявкам.
-- Только пассажир завершает свою принятую заявку. Повторное подтверждение
-  отклоняется, счётчик не увеличивается повторно.
-- Поля роли, телефона, статуса заявки, одобрения и счётчика нельзя менять напрямую.
-  RPC используют фиксированный search_path, явные проверки и ограниченные GRANT.
-- Блокировка профиля запрещает доступ к данным даже со старым JWT. Она сама по себе
-  не блокирует выдачу токена Supabase Auth; отдельный Auth ban/hook ещё не настроен.
-
-Не обещайте скрытие номеров, которые люди сами напишут в имени, комментарии или
-месте посадки: эти строки видны в карточках. Нужны предупреждение и проверка ввода
-при подключении реальных пользователей.
-
-## Обязательные проверки в облаке до запуска
-
-Локальные проверки используют PGlite (PostgreSQL) и имитацию `auth.uid()`.
-Они проверяют реальные SQL/RLS, но не проверяют JWT, HTTP Supabase Auth/PostgREST
-или две независимые одновременно открытые транзакции облачного сервера.
-
-На тестовой базе нужны два активных водителя одной зоны, водитель другой зоны,
-неодобренный водитель и два пассажира. Из независимых сессий проверьте телефоны,
-запрет чужих профилей, прямые UPDATE, cancel/release, блокировку и завершение
-только владельцем. Одновременно отправьте два `accept_request` для одной заявки:
-успех должен получить ровно один водитель. Повторите для двух подтверждений
-завершения: счётчик должен увеличиться ровно на один.
-
-После недели низкой активности Free-проект может остановиться: в панели нужен
-Resume project. Перед демонстрацией проверьте вход и создание заявки заранее.
-Не обещайте непрерывную работу бесплатного пилота.
-
-Источники реализации: [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security),
-[защита SQL-функций](https://supabase.com/docs/guides/database/functions),
-[телефон и пароль](https://supabase.com/docs/guides/auth/passwords).
+For a **new empty** Supabase project, run `supabase/schema.sql` once, then the
+numbered migrations in order before use. Then set
+up Auth and verified location data. Never run the initial schema in an existing
+project. The only browser key is the public publishable key in `js/config.js`.

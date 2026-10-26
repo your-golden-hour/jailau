@@ -1,11 +1,31 @@
-# Jailau
+# Жайлау
 
-Student pilot for taxi requests between Shymkent and nearby villages.
+Бета-версия v0.0.1 студенческого сайта заявок на поездки между Шымкентом и сёлами на русском и
+казахском языках. Статический интерфейс, Supabase Auth/PostgreSQL/RLS,
+никаких платных API. Оплата поездки — наличными напрямую водителю.
 
-Development is maintained in this repository. `main` is the active development branch;
-`release` will hold reviewed code for Cloudflare Pages when the real backend and
-launch checks are complete. Publishing requires owner approval.
+Локальный просмотр из папки проекта:
 
-The current browser app uses in-memory demo data. The Supabase database schema is
-installed, but the browser has not been connected to it yet. See
-`docs/PROJECT_STATUS.md` for the current state and next steps.
+```text
+python -m http.server 3000 --bind 127.0.0.1
+```
+
+Публичная бета: https://jailau.pages.dev/ . Локально откройте
+`http://localhost:3000/` (именно `localhost`, не `127.0.0.1`). Демо-режима больше нет: для входа
+нужен email-аккаунт Supabase с подтверждённой почтой. При регистрации сначала
+укажите только почту; после перехода по ссылке создайте пароль и заполните
+профиль. Google-вход подготовлен в коде, но провайдер пока не включён владельцем.
+
+После входа заполните профиль и проверьте контактный номер. В Supabase уже есть
+одна зона, одно село и тестовые заявки. Миграции `202610260001`–`202610260004`
+уже применены к рабочему проекту Supabase. Перед использованием с реальными
+людьми нужны проверка живого сценария и юридическая консультация.
+
+`main` — рабочая ветка; защищённая `release` — проверенная версия, из которой
+Cloudflare Pages публикует сайт. Автоматические превью других веток отключены.
+Никаких паролей,
+`service_role` или настоящих данных людей в репозитории.
+
+Состояние и следующие шаги: [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
+Настройка Supabase: [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md).
+Фирменный стиль: [docs/BRAND.md](docs/BRAND.md).

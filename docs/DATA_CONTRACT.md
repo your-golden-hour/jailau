@@ -1,19 +1,18 @@
 # Jailau — Data Contract (Mock → Supabase)
 
 This document defines the data model for **Jailau / Жайлау**, a free platform that
-connects passengers in villages near Shymkent with local taxi drivers. The frontend
-currently runs against an **in-memory mock API** (`js/api.js`). When the real backend
-(Supabase) is ready, implement exactly these entities, fields, relationships and
-visibility rules so the frontend can swap `js/api.js` internals without touching screens.
+connects passengers in villages near Shymkent with local taxi drivers. The browser
+now uses only the Supabase adapter (`js/supabase-api.js`). The old mock source
+was removed; older commits retain its history.
 
-Reviewed on 2026-10-25. `supabase/schema.sql` is the initial migration, and
-`docs/SUPABASE_SETUP.md` defines the SQL-to-browser adapter mapping. The browser
-API is still a mock; adding keys does not connect Supabase.
+Updated on 2026-10-26. `supabase/schema.sql` is the initial schema for a new
+project; the existing cloud project received the migration under
+`supabase/migrations/`. See `docs/SUPABASE_SETUP.md` for owner-only setup.
 
 **Non-negotiable product constraints**
 
 - Zero budget: free tier only. No SMS providers, no Google Maps, no paid APIs.
-- Privacy-first: phone numbers are hidden until a driver **accepts** a request.
+- Privacy-first: phone numbers are hidden until the passenger **accepts the driver's offer**.
 - The platform is **not a carrier**. Payments are cash, passenger ↔ driver, off-platform.
 - Dictionary/JSON keys remain Russian (`ru`) and Kazakh (`kz`); the HTML language
   tag uses the standard Kazakh language code `kk`.
@@ -77,7 +76,7 @@ Relationships: belongs to a zone; referenced by `requests.village_id`, `tariffs.
 | `id` | uuid | ✔ | PK = Supabase `auth.users.id` when migrated |
 | `name` | text | ✔ | Display name (first name + surname initial is enough) |
 | `phone` | text | ✔ | E.164-ish `+77XXXXXXXXX`; unique; **never shown before consent event (§6)** |
-| `password_hash` | text | mock-only | In production handled by Supabase Auth — do **not** store passwords yourself |
+| `email` | Auth identity only | ✔ | Read from Supabase Auth, not stored in `public.users` |
 | `role` | enum `passenger` \| `driver` \| `admin` | ✔ | Set at registration; admin created out-of-band |
 | `village_id` | uuid | optional | Home village of a passenger (drives “online drivers near me”) |
 | `created_at` | timestamptz | ✔ | |
@@ -86,7 +85,7 @@ Rules:
 
 - A `driver` user must have exactly one `driver_profiles` row.
 - Drivers register as `pending` and cannot see the feed until approved (§5).
-- The future browser adapter must reject blocked driver sessions and sign them out.
+- The browser adapter rejects blocked driver sessions and signs them out.
   The SQL immediately prevents blocked drivers reading request/contact data or
   accepting requests even with an existing valid JWT. Banning Supabase Auth login
   itself requires a separate trusted Auth admin action/hook; this migration does
@@ -109,10 +108,14 @@ One-to-one extension of `users` where `role = 'driver'`.
 | `approval_status` | enum `pending` \| `active` \| `rejected` \| `blocked` | ✔ | Admin-managed lifecycle |
 | `is_online` | boolean | ✔ | Feed visibility switch |
 | `online_since` | timestamptz | nullable | Set when going online, cleared when offline |
+| `online_location` | `village` \| `city` | nullable | Current side of the trip while on line |
 | `completed_trips` | integer | ✔ | Default 0; only `confirm_trip_done` increments it, once per completed request |
 
 Lifecycle: `pending → active` (approve) · `pending → rejected` · `active → blocked` ·
 `blocked/rejected → active` (unblock). Going online requires `active`.
+An online session is effective for 10 minutes from `online_since`; expiry is
+checked on the server even if the browser is closed. Switching districts is a
+privileged RPC that turns the line off and returns approval to `pending`.
 
 ---
 
@@ -133,30 +136,42 @@ A ride request posted by a passenger. This is the core entity.
 | `price` | int (tenge) | if not negotiable | Passenger’s offered price; null when `negotiable` |
 | `negotiable` | boolean | ✔ | “Договорная / Келіссөзбен” |
 | `comment` | text | optional | Baggage, kids, livestock… |
-| `status` | enum `open` \| `accepted` \| `done` \| `cancelled` | ✔ | State machine below |
-| `driver_id` | uuid | nullable | FK → `users.id`, set on accept |
+| `status` | enum `open` \| `offered` \| `accepted` \| `done` \| `cancelled` | ✔ | State machine below |
+| `driver_id` | uuid | nullable | FK → `users.id`, set on offer |
 | `created_at` | timestamptz | ✔ | |
+| `offered_at` | timestamptz | nullable | When the driver offers a ride |
 | `accepted_at` | timestamptz | nullable | |
 | `done_at` | timestamptz | nullable | |
 
 State machine:
 
 ```
-open ──accept──▶ accepted ──confirm_done──▶ done
-  │                  │
-  │ cancel (own)     │ release (driver)
-  ▼                  ▼
-cancelled          open   (driver_id cleared)
+open ──driver offer──▶ offered ──passenger accepts──▶ accepted ──confirm_done──▶ done
+  │                     │   │                            │   │
+  │ passenger cancels   │   │ decline/driver release     │   │ driver release
+  ▼                     │   ▼                            │   ▼
+cancelled ◀──────────────┘  open      passenger cancels ──┘  open
 ```
 
-- Only the owning passenger may cancel while `status = open`.
-- Accept is atomic via `accept_request`: locks the driver's profile, verifies
-  `active`, online state, seats and zone, then conditionally updates an open request.
-  First driver wins; losing calls receive `df_already_taken`. Clients have no
+- Only the owning passenger may cancel while `status = open`, `offered`, or
+  `accepted`. Cancellation clears the driver assignment and acceptance time,
+  releases the reserved seats, hides contact phones, and never increments a
+  completion counter. A `done` or already `cancelled` request cannot be cancelled.
+- Offering is atomic via `accept_request`: locks the driver's profile, verifies
+  `active`, 10-minute line, current village/city side, seats and district, then
+  checks offered plus accepted seats in overlapping two-hour windows.
+  First driver wins the offer; losing calls receive `df_already_taken`. The
+  passenger alone may accept or decline using `respond_to_offer`. Clients have no
   direct INSERT/UPDATE/DELETE privileges on requests.
 - Only the owning passenger can confirm an accepted ride as done. Driver/admin
-  completion is forbidden. The same transaction increments `completed_trips` once.
-- A released request returns to the feed with `driver_id = null`.
+  completion is forbidden. Confirmation opens no sooner than one hour after
+  acceptance or scheduled start. The same transaction increments `completed_trips` once.
+- At that one-hour check, a passenger answering No chooses to keep the accepted
+  request active or cancel it. There is no automatic repost or completion.
+- A distinct ride-start state, two-sided completion, disputes, and passenger
+  counters are deferred beyond beta v0.0.1; they need an explicit lifecycle
+  design and must not be represented as working features.
+- A released or declined request returns to the feed with `driver_id = null`.
 
 ### Privacy / field visibility matrix (critical for RLS policies)
 
@@ -165,19 +180,20 @@ cancelled          open   (driver_id cleared)
 | Anonymous / unauthenticated | ✘ | ✘ | ✘ | ✘ |
 | Passenger browsing feed (none — passengers don’t browse) | – | – | – | – |
 | Driver, request `open` (feed card) | ✔ | ✘ | ✘ | ✘ |
-| Driver, own accepted request | ✔ | ✔ (after accept) | ✔ | ✘ |
+| Driver, own offered request | ✔ | ✘ | ✔ | ✘ |
+| Driver, own accepted request | ✔ | ✔ (after passenger consent) | ✔ | ✘ |
 | Passenger, own request `open` | ✔ | n/a | ✘ | ✘ |
-| Passenger, own request `accepted/done` | ✔ | n/a | ✔ | ✔ (after accept) |
+| Passenger, own request `offered` | ✔ | n/a | ✔ | ✘ |
+| Passenger, own request `accepted/done` | ✔ | n/a | ✔ | ✔ (after consent) |
 | Admin | ✔ | ✔ | ✔ | ✔ |
 
 Implementation notes for Supabase:
 
 - Store phones in `users.phone`; expose them via a **view or RPC** that joins
-  `requests` and returns the phone **only** when `requests.driver_id = auth.uid()`
+  `requests` and returns the phone **only** when `requests.driver_id = auth.uid() AND status in ('accepted','done')`
   (for passenger phone) or `requests.passenger_id = auth.uid() AND status in ('accepted','done')`
   (for driver phone). Never select raw `users.phone` client-side.
-- The mock enforces this in `decorateRequest()` inside `js/api.js` — keep the same
-  semantics server-side.
+- `jailau_private.request_json()` enforces this on the server.
 
 ---
 
@@ -219,29 +235,36 @@ which helps a driver judge whether a 1500 ₸ offer is profitable.
 
 ## 9. API surface (frontend contract)
 
-`js/api.js` exposes `window.JAILAU_API` — the single point of all data access.
-The Supabase implementation must keep these signatures (all return Promises
+`js/supabase-api.js` exposes `window.JAILAU_API` — the single point of browser data access.
+The Supabase implementation uses these signatures (all return Promises
 except the synchronous `estimateFuelCost` helper):
 
 | Function | Args | Returns | Notes |
 |---|---|---|---|
-| `signUp` | `{name, phone, password, role, village_id?, driver?{zone_id, car_brand, plate, seats, fuel_consumption}}` | public user | driver gets `pending` profile |
-| `signIn` | `phone, password` | public user | blocked drivers rejected |
+| `signUp` | `email` | `{needsConfirmation}` | sends Magic Link; email verified on click |
+| `signIn` | `email, password` | public user | blocked drivers rejected |
+| `signInWithGoogle` | – | OAuth redirect | provider pending owner setup |
+| `completeProfile` | `{phone,name,role,driver?}` | public user | email flow sets password first; driver gets `pending` profile |
+| `updateProfile` | `{name,phone}` | public user | self only, unique phone |
+| `changePassword` | `newPassword` | true | Supabase Auth |
 | `signOut` | – | true | clears session |
-| `getCurrentUser` | – | public user \| null | session only, in-memory |
+| `getCurrentUser` | – | public user \| incomplete user \| null | persistent Supabase Auth session |
 | `listZonesAndVillages` | – | zones[] each with villages[] (+`suggested_price`) | reference data |
 | `setUserVillage` | `village_id` | public user | passenger home village |
 | `createRequest` | `{direction, village_id, pickup_spot, when, datetime, seats, negotiable, price, comment}` | request | validates seats 1–4 |
 | `listMyRequests` | – | decorated requests[] | viewer=`passenger` (driver phone after accept) |
-| `cancelRequest` | `request_id` | decorated request | only own `open` requests |
-| `listOpenRequestsForDriver` | – | decorated requests[] | zone-filtered, requires `active` + `is_online`; no phones |
+| `cancelRequest` | `request_id` | decorated request | only own `open`/`offered` requests |
+| `listOpenRequestsForDriver` | – | decorated requests[] | district and current side filtered; requires active 10-minute line; no phones |
 | `getDriverStatus` | – | `{is_online, approval_status, zone_name, …}` | own profile |
-| `acceptRequest` | `request_id` | decorated request | atomic; fails `df_already_taken` |
-| `releaseRequest` | `request_id` | decorated request | own `accepted` only |
+| `acceptRequest` | `request_id` | decorated offer | atomic driver offer; fails `df_already_taken`/`df_no_seats` |
+| `respondToOffer` | `request_id, boolean` | decorated request | passenger accepts or declines |
+| `releaseRequest` | `request_id` | decorated request | own `offered`/`accepted` |
 | `confirmTripDone` | `request_id` | decorated request | owning passenger only; `accepted` → `done`; increments assigned driver's counter once |
-| `setDriverOnline` | `boolean` | `{is_online, online_since}` | requires `active` |
-| `listOnlineDriversByVillage` | `village_id` | `[{name, car_brand, seats, online_since}]` | **phones excluded by design** |
-| `listDriverAcceptedRequests` | – | decorated requests[] | viewer=`driver-owner`, passenger phone revealed |
+| `setDriverOnline` | `boolean, village\|city` | `{is_online, online_since, online_location}` | requires `active`; 10-minute lease |
+| `onlineDriverCounts` | `zone_id` | `{village,city}` | approved driver's district |
+| `requestDriverZone` | `zone_id` | own driver profile | goes offline and pending approval |
+| `listOnlineDriversByVillage` | `village_id, village\|city` | `[{name, car_brand, seats, online_since}]` | **phones excluded by design** |
+| `listDriverAcceptedRequests` | – | decorated requests[] | own offered/accepted/done; phone only after consent |
 | `estimateFuelCost` | `km, consumption?` | `{km, coefficient, consumption, fuel_price, liters, cost_tenge}` | pure calc from `settings` |
 | `adminApproveDriver` / `adminRejectDriver` / `adminBlockDriver` / `adminUnblockDriver` | `user_id` | `{ok, messageKey, driver}` | admin only |
 | `adminListDrivers` | `statusFilter ("pending"\|"all")` | driver rows incl. phone (admin view) | admin only |
@@ -257,22 +280,19 @@ can translate it directly.
 
 ---
 
-## 10. Migration checklist (mock → Supabase)
+## 10. Migration status and next checks
 
 1. Create tables per §2–§8 (SQL above described structurally; add indexes on
    `requests(status, village_id)`, `villages(zone_id)`, `driver_profiles(zone_id, is_online)`).
-2. Enable RLS; write policies matching the visibility matrix in §6 — phones only after accept.
-3. Implement `acceptRequest` as a Postgres RPC (`security definer`) for atomic first-wins.
-4. Put the project URL + **anon key only** into `js/config.js` (never service_role).
-5. Replace bodies of `js/api.js` with supabase-js calls; keep exports identical.
-6. Keep `DEMO_MODE = true` until the real adapter and live security checks pass.
-   Keys alone must never remove the banner.
-7. Real auth: Supabase phone/password for the agreed pilot; no password/hash column
-   in `public.users`. Without SMS there is no proof of phone ownership, so use
-   trusted test accounts and agree a recovery process before enrolling real users.
-8. `complete_profile` uses the authenticated user's phone from `auth.users`, never
-   a phone or role taken blindly from editable metadata. It permits only passenger
-   or driver creation, once. Admin is appointed out-of-band by the owner.
+2. Enable RLS; write policies matching the visibility matrix in §6 — phones only after passenger consent.
+3. Implement `acceptRequest` as a Postgres RPC (`security definer`) for atomic first-wins offers.
+4. Put the project URL + **publishable key only** into `js/config.js` (never service_role).
+5. The browser now uses Supabase only; it fails closed when configuration is missing.
+6. Email/password Auth is available; Google OAuth needs owner Google Cloud setup.
+   Contact phone is unique but unverified, and can be changed in Profile.
+8. `complete_profile` takes the contact phone from an authenticated caller and
+   validates it through a database constraint. It permits only passenger or driver
+   creation, once. Admin is appointed out-of-band by the owner.
 9. Paginate request lists (`list_requests` defaults to 50 rows, caps at 100).
 10. Never include phone numbers in pickup/comment/name fields: free text is visible
     to approved drivers in the zone before acceptance. Add a user notice and

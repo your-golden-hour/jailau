@@ -8,7 +8,7 @@ function worker() {
   const cache={addAll:async assets=>assets.forEach(a=>assert.ok(a==='./'||fs.existsSync(a))),
     put:async(key)=>put.push(key),match:async()=>null};
   const context={URL,Promise,console,caches:{open:async()=>cache,match:async()=>({offline:true}),
-    keys:async()=>['other-app-cache','jailau-shell-v1','jailau-shell-v2'],
+    keys:async()=>['other-app-cache','jailau-shell-v1','jailau-shell-v2','jailau-shell-v3'],
     delete:async key=>deleted.push(key)},fetch:async()=>({ok:true,status:200,type:'basic',clone(){return this;}}),
     self:{location:{origin:'http://localhost',href:'http://localhost/service-worker.js'},
       addEventListener:(key,fn)=>handlers[key]=fn,skipWaiting:async()=>{},clients:{claim:async()=>{}}}};
@@ -21,7 +21,7 @@ test('service worker precaches valid shell files and preserves unrelated caches'
   w.handlers.install({waitUntil:p=>waits.push(p)});
   w.handlers.activate({waitUntil:p=>waits.push(p)});
   await Promise.all(waits);
-  assert.deepEqual(w.deleted,['jailau-shell-v1']);
+  assert.deepEqual(w.deleted,['jailau-shell-v1','jailau-shell-v2','jailau-shell-v3']);
 });
 test('service worker ignores private API responses and falls back when offline',async()=>{
   const w=worker(),responses=[],waits=[];
