@@ -12,9 +12,6 @@
     return t(key) === key ? t("error_generic") : t(key);
   }
   function phone(value) { return String(value || "").replace(/[\s()-]/g, ""); }
-  function confirmPhone(value) {
-    return window.confirm(t("phone_confirm", { phone: value }));
-  }
   function render(container, complete) {
     var user = window.JAILAU_APP.getCurrentUser();
     if (!user) { window.location.hash = "#/login"; return; }
@@ -69,8 +66,8 @@
       var value = phone(form.querySelector("#profile-phone").value);
       var status = container.querySelector("#profile-message");
       if (!/^\+7\d{10}$/.test(value)) { status.textContent = t("err_phone_invalid"); return; }
-      if ((complete || value !== user.phone) && !confirmPhone(value)) return;
       var payload = { name: form.querySelector("#profile-name").value.trim(), phone: value };
+      if (!payload.name) { status.textContent = t("profile_name_required"); return; }
       if (complete) {
         var passwordField = form.querySelector("#profile-password");
         if (passwordField) {
@@ -90,6 +87,16 @@
           }
         }
       }
+      var changes = [];
+      if (complete || payload.name !== (user.name || "")) changes.push(t("field_name") + ": " + payload.name);
+      if (complete || payload.phone !== (user.phone || "")) changes.push(t("field_phone") + ": " + payload.phone);
+      if (complete) {
+        changes.push(t("field_role") + ": " + t(payload.role === "driver" ? "role_driver" : "role_passenger"));
+        if (payload.driver) changes.push(t("df_zone_label") + ": " + form.querySelector("#driver-zone").selectedOptions[0].textContent);
+        if (passwordField) changes.push(t("profile_password") + ": " + t("profile_password_hidden"));
+      }
+      if (!changes.length) { status.textContent = t("profile_no_changes"); return; }
+      if (!window.confirm(t("profile_confirm_changes", { changes: changes.join("\n") }))) return;
       var button = form.querySelector('[type="submit"]');
       button.disabled = true;
       var save = complete ?
@@ -107,6 +114,7 @@
           if (!card) return;
           var driver = result[0], zones = result[1];
           card.innerHTML = '<h2 class="section-title">' + esc(t("profile_driver_zone")) + '</h2>' +
+            (Number(driver.completed_trips) > 0 ? '<p class="driver-trip-count">' + esc(t("driver_completed_trips", { n: driver.completed_trips })) + '</p>' : '') +
             '<p class="form-hint">' + esc(t("profile_zone_reapproval")) + '</p>' +
             '<form id="driver-zone-form"><label class="form-label" for="profile-zone">' + esc(t("df_zone_label")) + '</label>' +
             '<select class="form-select" id="profile-zone">' + zones.map(function (zone) {
@@ -120,7 +128,7 @@
             event.preventDefault();
             var nextZone = card.querySelector("#profile-zone").value;
             if (nextZone === driver.zone_id) return;
-            if (!window.confirm(t("profile_zone_confirm"))) return;
+            if (!window.confirm(t("profile_zone_confirm", { zone: card.querySelector("#profile-zone").selectedOptions[0].textContent }))) return;
             var button = event.target.querySelector('button[type="submit"]');
             button.disabled = true;
             API.requestDriverZone(nextZone).then(function (updated) {
@@ -139,10 +147,14 @@
       container.querySelector("#password-form").addEventListener("submit", function (event) {
         event.preventDefault();
         var password = event.target.querySelector("#new-password").value;
+        if (!window.confirm(t("profile_password_confirm"))) return;
+        var button = event.target.querySelector('[type="submit"]');
+        button.disabled = true;
         API.changePassword(password).then(function () {
           container.querySelector("#profile-message").textContent = t("profile_password_saved");
           event.target.reset();
-        }).catch(function (err) { container.querySelector("#profile-message").textContent = msg(err); });
+        }).catch(function (err) { container.querySelector("#profile-message").textContent = msg(err); })
+          .finally(function () { button.disabled = false; });
       });
       container.querySelectorAll("[data-placeholder]").forEach(function (button) {
         button.addEventListener("click", function () { window.JAILAU_APP.toast(t("profile_coming_soon")); });

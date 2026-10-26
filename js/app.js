@@ -171,6 +171,9 @@
     if (SCREENS.driver && SCREENS.driver.clearTimers && hash !== "#/driver/feed") {
       SCREENS.driver.clearTimers();
     }
+    if (SCREENS.passenger && SCREENS.passenger.clearTimers && hash !== "#/passenger/my-requests") {
+      SCREENS.passenger.clearTimers();
+    }
 
     var freshScreen = elScreen.cloneNode(false);
     elScreen.replaceWith(freshScreen);
@@ -220,6 +223,7 @@
 
   function doLogout() {
     if (SCREENS.driver && SCREENS.driver.clearTimers) SCREENS.driver.clearTimers();
+    if (SCREENS.passenger && SCREENS.passenger.clearTimers) SCREENS.passenger.clearTimers();
     API.signOut().then(function () {
       currentUser = null;
       window.location.hash = "#/login";

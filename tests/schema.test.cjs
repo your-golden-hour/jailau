@@ -28,6 +28,7 @@ test('PostgreSQL schema: roles, RLS, contacts, lifecycle and exactly-once counte
       alter default privileges in schema public grant execute on functions to anon,authenticated;`);
     await db.exec(fs.readFileSync('supabase/schema.sql', 'utf8'));
     await db.exec(fs.readFileSync('supabase/migrations/202610260002_driver_lines_and_offers.sql', 'utf8'));
+    await db.exec(fs.readFileSync('supabase/migrations/202610260003_ten_minute_driver_line.sql', 'utf8'));
     await db.query('insert into public.zones(id,name) values ($1,$3),($2,$3)', [id(1),id(2),{ru:'Test zone',kz:'Test zone'}]);
     await db.query(`insert into public.villages(id,zone_id,name,lat,lng,km_to_city)
       values($1,$2,$3,0,0,22),($4,$5,$3,0,0,30)`,[id(11),id(1),{ru:'Test village',kz:'Test village'},id(12),id(2)]);
@@ -131,7 +132,9 @@ test('PostgreSQL schema: roles, RLS, contacts, lifecycle and exactly-once counte
     await denied(id(21),`select public.create_request('village_to_city',$1,'','scheduled',now()-interval '1 hour',2,null,true,'')`,[id(11)]);
     await denied(id(24),'update public.driver_profiles set zone_id=$1 where user_id=$2',[id(2),id(24)]);
     const testVillage = await create(11);
-    await db.query("update public.driver_profiles set online_since=now()-interval '31 minutes' where user_id=$1",[id(24)]);
+    await db.query("update public.driver_profiles set online_since=now()-interval '9 minutes' where user_id=$1",[id(24)]);
+    assert.equal((await as(id(24),"select public.list_requests('feed')")).length > 0,true);
+    await db.query("update public.driver_profiles set online_since=now()-interval '11 minutes' where user_id=$1",[id(24)]);
     assert.equal((await as(id(24),"select public.list_requests('feed')")).length,0);
     await denied(id(24),'select public.accept_request($1)',[testVillage]);
     assert.ok(!(await as(id(22),'select * from public.list_online_drivers($1)',[id(11)])).some(x => x.name === 'Driver 24'));

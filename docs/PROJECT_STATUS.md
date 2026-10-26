@@ -2,8 +2,8 @@
 
 Updated 2026-10-26. Codex owns development; Qwen and Qwen Coder are no longer used.
 Repository: https://github.com/your-golden-hour/jailau. Current review branch:
-`codex/website-rebuild`, PR #4. `release`/Cloudflare must not be changed before
-the owner's explicit approval.
+`codex/website-rebuild`, PR #4. The owner explicitly approved beta v0.0.1
+publication on 2026-10-26; deployment is being prepared.
 
 ## Current change in progress (database applied; website not published)
 
@@ -17,12 +17,20 @@ the owner's explicit approval.
 - This is structural/permission verification, **not** a full live two-account
   ride test. The frontend is still a local/review build; nothing was promoted
   to `release` or published.
+- Migration `202610260003_ten_minute_driver_line.sql` was applied through the
+  Supabase connector. All six affected live functions use 10 minutes and
+  retain no anonymous EXECUTE permission; five requests (two accepted) remain.
+- Beta v0.0.1 now displays trip counts beside seats and on a driver's profile
+  only when positive. Name, phone, district and password changes require
+  confirmation. The login screen displays the version. Completed rides are
+  labelled in driver history. After the one-hour server threshold, a passenger
+  sees a yes/no completion dialog; No keeps the ride active.
 - New workflow: driver sends an offer; only the passenger accepts or declines.
   Contact phones remain hidden until the passenger accepts. Offered/accepted
   seats count against the same two-hour capacity window. The seat-limit error
   now explains that there is not enough room in the car.
 - Driver lines have separate village and Shymkent modes. They expire after
-  30 minutes, enforced on feed, acceptance, online counts and listings. A driver
+  10 minutes, enforced on feed, acceptance, online counts and listings. A driver
   changing district is taken offline and returns to pending admin approval;
   outstanding offers are reopened, accepted rides remain assigned.
 - Passenger home groups online drivers by village/city. Driver feed displays
@@ -31,7 +39,7 @@ the owner's explicit approval.
   lacks several Kazakh glyphs, so the CSS stack falls back to device Noto Sans
   or system sans for those letters; the RU/KZ browser preview rendered them.
   Full low-end Android glyph QA remains to do. No new paid service.
-- Local suite: 17 tests pass after live migration, including offer
+- Local suite: 22 tests pass after live migration, including offer
   privacy/decline, line expiry, mode filtering, seat error, district
   reapproval, and bilingual UI. The real-browser two-account flow still
   requires follow-up.
@@ -54,7 +62,7 @@ the owner's explicit approval.
   form and driver feed already handle both directions; cards simplified.
 - Admin driver actions now read the matching `data-*` ID attribute before
   calling the status RPC, so approve/reject/block/unblock target the selected
-  driver. The current PWA shell cache is v10, including the local font.
+  driver. The current PWA shell cache is v11, including the local font.
 - Database migration `supabase/migrations/202610260001_email_profile_capacity.sql`
   applied to cloud project `ubjcvqqxkgshguiwikqu`. Phone is unique contact data,
   not Auth identity. Old phone-based `complete_profile` signature has no client
@@ -65,7 +73,7 @@ the owner's explicit approval.
   whichever is later; completion increments the counter once.
 - Seven public tables have RLS. Local PGlite test exercises roles, private phone
   reveal, zone/approval restrictions, seat limit, completion delay, and counter.
-  All 17 automated tests pass. Static PWA shell avoids caching API responses.
+  All 22 automated tests pass. Static PWA shell avoids caching API responses.
 
 ## Decisions and limitations
 
@@ -89,11 +97,12 @@ the owner's explicit approval.
 ## Next checks
 
 1. Check village/city modes, offer accept/decline, district reapproval, and
-   live 30-minute expiry with disposable accounts.
+   live 10-minute expiry with disposable accounts.
 2. Test two concurrent offers against live cloud, scheduling boundaries,
    completion at one hour, mobile slow-network behavior, and app installability.
-3. Review PR #4, then ask owner before promoting to protected `release` and
-   publishing Cloudflare Pages. Disable preview deploys for unreviewed branches.
+3. Finish review of PR #4, promote to protected `release` under the owner's
+   v0.0.1 authorization, publish Cloudflare Pages and disable preview deploys
+   for unreviewed branches. Configure the exact production Auth redirect URL.
 
 Security Advisor currently flags 13 intentional signed-in `SECURITY DEFINER`
 RPCs, which must retain explicit in-function authorization, and disabled leaked

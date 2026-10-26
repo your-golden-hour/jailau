@@ -113,7 +113,7 @@ One-to-one extension of `users` where `role = 'driver'`.
 
 Lifecycle: `pending → active` (approve) · `pending → rejected` · `active → blocked` ·
 `blocked/rejected → active` (unblock). Going online requires `active`.
-An online session is effective for 30 minutes from `online_since`; expiry is
+An online session is effective for 10 minutes from `online_since`; expiry is
 checked on the server even if the browser is closed. Switching districts is a
 privileged RPC that turns the line off and returns approval to `pending`.
 

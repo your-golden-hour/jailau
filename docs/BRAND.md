@@ -35,5 +35,5 @@ blocks of marketing copy.
 ## Interaction language
 
 Use short, honest verbs: “Предложить поездку”, “Подтвердить”, “Отказаться”,
-“Сменить район”. Keep timing and access visible: 30 minutes on line, passenger
+“Сменить район”. Keep timing and access visible: 10 minutes on line, passenger
 agreement before contacts, and admin reapproval after changing district.

@@ -28,7 +28,8 @@
       '<div class="auth-divider">' + esc(t("auth_or")) + '</div>' +
       '<button class="btn btn-secondary btn-block" id="auth-google" type="button">' + esc(t("auth_google")) + '</button>' +
       '<p id="auth-message" class="form-hint" role="status"></p>' +
-      '<a class="text-link terms-link" href="#/terms">' + esc(t("terms_link")) + '</a></div></div>';
+      '<a class="text-link terms-link" href="#/terms">' + esc(t("terms_link")) + '</a></div>' +
+      '<p class="auth-version">' + esc(t("beta_version", { version: window.JAILAU_CONFIG.VERSION })) + '</p></div>';
     container.querySelectorAll("[data-mode]").forEach(function (button) {
       button.addEventListener("click", function () { render(container, { mode: button.dataset.mode }); });
     });

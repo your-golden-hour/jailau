@@ -9,6 +9,7 @@
   "use strict";
 
   window.JAILAU_CONFIG = {
+    VERSION: "v0.0.1",
     // --- Public Supabase project details; never put secrets here ---
     SUPABASE_URL: "https://ubjcvqqxkgshguiwikqu.supabase.co",
     SUPABASE_PUBLISHABLE_KEY: "sb_publishable_YXWZ6JHO4rsqnbUtYoVt6w_8Z74TxdJ",

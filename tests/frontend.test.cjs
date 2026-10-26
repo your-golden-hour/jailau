@@ -33,12 +33,30 @@ test('home shows contact phone and both route directions', async () => {
   } finally { dom.window.close(); }
 });
 
+test('driver trip count appears beside seats only when positive', async () => {
+  const dom=load(),w=dom.window;
+  try {
+    let count=0;
+    w.JAILAU_API.listOnlineDriversByVillage=async (_,mode) => mode==='village'
+      ? [{name:'Driver',car_brand:'Car',seats:4,completed_trips:count,online_since:new Date().toISOString()}] : [];
+    w.JAILAU_SCREENS.passenger.renderHome(w.document.getElementById('screen'));
+    await flush(); await flush();
+    assert.match(w.document.querySelector('.driver-card').textContent,/4 мест/);
+    assert.doesNotMatch(w.document.querySelector('.driver-card').textContent,/Поездок:/);
+    count=3;
+    w.document.querySelector('#home-village').dispatchEvent(new w.Event('change'));
+    await flush(); await flush();
+    assert.match(w.document.querySelector('.driver-card').textContent,/4 мест · Поездок: 3/);
+  } finally {dom.window.close();}
+});
+
 test('registration asks only for email and sends a confirmation link', async () => {
   const dom=load(),w=dom.window;
   try {
     let sent;
     w.JAILAU_API.signUp=async email => { sent=email; return {needsConfirmation:true}; };
     w.JAILAU_SCREENS.auth.render(w.document.getElementById('screen'),{mode:'register'});
+    assert.match(w.document.querySelector('.auth-version').textContent,/v0\.0\.1/);
     const form=w.document.querySelector('#auth-form');
     assert.equal(form.querySelector('#auth-password'),null);
     form.querySelector('#auth-email').value='new@example.com';
@@ -71,6 +89,42 @@ test('passenger cannot see completion button before one hour', async () => {
     await flush();
     assert.equal(w.document.querySelector('[data-confirm-done]'),null);
     assert.match(w.document.body.textContent,/Подтверждение доступно после/);
+  } finally {dom.window.close();}
+});
+
+test('after one hour passenger sees yes/no; no keeps the ride active', async () => {
+  const dom=load(),w=dom.window;
+  try {
+    let status='accepted',doneCalls=0;
+    w.JAILAU_API.listMyRequests=async () => [{id:'ride-check',status,direction:'village_to_city',
+      village_name:{ru:'Село',kz:'Ауыл'},negotiable:true,when:'asap',seats:1,
+      accepted_at:new Date(Date.now()-70*60000).toISOString(),driver_name:'Driver'}];
+    w.JAILAU_API.confirmTripDone=async () => {doneCalls++;status='done';};
+    const screen=w.document.getElementById('screen');
+    w.JAILAU_SCREENS.passenger.renderMyRequests(screen);
+    await flush();
+    assert.match(screen.querySelector('.trip-check-dialog').textContent,/Поездка состоялась\?/);
+    screen.querySelector('[data-trip-no]').click();
+    assert.equal(doneCalls,0);
+    assert.ok(screen.querySelector('[data-confirm-done]'));
+    screen.querySelector('[data-confirm-done]').click();
+    screen.querySelector('[data-trip-yes]').click();
+    await flush(); await flush();
+    assert.equal(doneCalls,1);
+    assert.match(screen.textContent,/Выполнена/);
+  } finally {w.JAILAU_SCREENS.passenger.clearTimers();dom.window.close();}
+});
+
+test('driver history labels completed rides clearly', async () => {
+  const dom=load(),w=dom.window;
+  try {
+    w.JAILAU_API.listDriverAcceptedRequests=async () => [{id:'done-ride',status:'done',direction:'village_to_city',
+      village_name:{ru:'Село',kz:'Ауыл'},negotiable:true,when:'asap',seats:1,
+      done_at:new Date().toISOString(),passenger_name:'Passenger'}];
+    w.JAILAU_SCREENS.driver.renderMyRequests(w.document.getElementById('screen'));
+    await flush();
+    assert.match(w.document.querySelector('.badge-done').textContent,/Выполнена/);
+    assert.match(w.document.body.textContent,/Выполнена \d\d\.\d\d\./);
   } finally {dom.window.close();}
 });
 
@@ -167,6 +221,45 @@ test('profile asks for phone confirmation before writing', async () => {
     form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
     await flush();
     assert.equal(writes,0);
+  } finally {dom.window.close();}
+});
+
+test('name and password changes require separate confirmation', async () => {
+  const dom=load(),w=dom.window;
+  try {
+    const prompts=[];
+    let nameWrites=0,passwordWrites=0;
+    w.confirm=text => {prompts.push(text);return false;};
+    w.JAILAU_API.updateProfile=async () => {nameWrites++;return {};};
+    w.JAILAU_API.changePassword=async () => {passwordWrites++;};
+    w.JAILAU_SCREENS.profile.render(w.document.getElementById('screen'),false);
+    const form=w.document.querySelector('#profile-form');
+    form.querySelector('#profile-name').value='Changed';
+    form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+    assert.match(prompts[0],/Changed/);
+    assert.equal(nameWrites,0);
+    const passwordForm=w.document.querySelector('#password-form');
+    passwordForm.querySelector('#new-password').value='new-password';
+    passwordForm.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+    assert.match(prompts[1],/Изменить пароль/);
+    assert.equal(passwordWrites,0);
+  } finally {dom.window.close();}
+});
+
+test('driver profile hides zero trip count and shows a positive count', async () => {
+  const dom=load(),w=dom.window;
+  try {
+    let trips=0;
+    w.JAILAU_APP.getCurrentUser=() => ({name:'Driver',phone:'+70000000001',email:'driver@example.com',role:'driver'});
+    w.JAILAU_API.getDriverStatus=async () => ({zone_id:'z1',approval_status:'active',completed_trips:trips});
+    const screen=w.document.getElementById('screen');
+    w.JAILAU_SCREENS.profile.render(screen,false);
+    await flush();
+    assert.equal(screen.querySelector('.driver-trip-count'),null);
+    trips=2;
+    w.JAILAU_SCREENS.profile.render(screen,false);
+    await flush();
+    assert.match(screen.querySelector('.driver-trip-count').textContent,/Поездок: 2/);
   } finally {dom.window.close();}
 });
 

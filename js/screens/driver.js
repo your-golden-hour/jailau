@@ -67,14 +67,14 @@
 
         function isActive() {
           return currentProfile.is_online && currentProfile.online_since &&
-            Date.now() - new Date(currentProfile.online_since).getTime() < 30 * 60 * 1000;
+            Date.now() - new Date(currentProfile.online_since).getTime() < 10 * 60 * 1000;
         }
 
         function renderCountdown() {
           var note = container.querySelector("#line-countdown");
           if (!note) return;
           if (!currentProfile.is_online) { note.textContent = t("df_online_off"); return; }
-          var remaining = Math.max(0, Math.ceil((new Date(currentProfile.online_since).getTime() + 30 * 60 * 1000 - Date.now()) / 60000));
+          var remaining = Math.max(0, Math.ceil((new Date(currentProfile.online_since).getTime() + 10 * 60 * 1000 - Date.now()) / 60000));
           if (!isActive()) {
             currentProfile.is_online = false;
             note.textContent = t("df_line_expired");
@@ -296,8 +296,9 @@
       '<div class="card">' +
         '<div class="card-row">' +
           '<div class="card-title">🚗 ' + esc(t("dt_route", { from: from, to: to })) + '</div>' +
-          priceHtml +
+          (readonly ? '<span class="badge badge-done">✓ ' + esc(t("mr_status_done")) + '</span>' : priceHtml) +
         '</div>' +
+        (readonly ? '<div class="card-meta">' + esc(t("dt_completed_at", { time: fmtDateTime(r.done_at) })) + '</div>' : '') +
         '<div class="card-meta">🕐 ' + esc(whenText) + ' · 👥 ' + esc(t("df_seats", { n: r.seats })) + '</div>' +
         '<div class="card-meta">👤 ' + esc(t("df_passenger", { name: r.passenger_name })) + '</div>' +
         (r.pickup_spot ? '<div class="card-meta">📍 ' + esc(r.pickup_spot) + '</div>' : "") +

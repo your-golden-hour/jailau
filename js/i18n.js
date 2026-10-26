@@ -519,7 +519,7 @@
     df_no_seats: "В салоне не хватает мест для этой заявки в выбранное время.",
     df_offer: "Предложить поездку", df_offered_msg: "Предложение отправлено пассажиру.",
     df_line_village: "Я в селе", df_line_city: "Я в Шымкенте",
-    df_line_remaining: "На линии ещё {minutes} мин", df_line_expired: "30 минут прошли. Включите линию снова.",
+    df_line_remaining: "На линии ещё {minutes} мин", df_line_expired: "10 минут прошли. Включите линию снова.",
     df_online_counts: "На линии в районе: село {village} · город {city}",
     df_upgrade_required: "Обновление базы данных ещё не применено. Линия и предложения пока недоступны.",
     line_location_required: "Выберите, где вы сейчас: в селе или в городе.",
@@ -529,17 +529,21 @@
     mr_offer_declined: "Предложение отклонено. Заявка снова открыта.",
     offer_not_available: "Предложение уже недоступно. Обновите заявки.",
     profile_driver_zone: "Мой район", profile_zone_reapproval: "При смене района линия выключится. Администратор должен одобрить новый район.",
-    profile_request_zone: "Сменить район", profile_zone_confirm: "Сменить район? Потребуется новое одобрение администратора.",
+    profile_request_zone: "Сменить район", profile_zone_confirm: "Сменить район на «{zone}»? Линия выключится, потребуется новое одобрение администратора.",
     profile_zone_pending: "Новый район ожидает одобрения администратора.",
     zone_not_found: "Такой район не найден. Обновите страницу.",
-    ph_online_village: "Водители в селе", ph_online_city: "Водители в Шымкенте"
+    ph_online_village: "Водители в селе", ph_online_city: "Водители в Шымкенте",
+    beta_version: "Бета-версия {version}", driver_completed_trips: "Поездок: {n}",
+    profile_name_required: "Укажите имя.", profile_no_changes: "Изменений нет.",
+    profile_password_hidden: "будет установлен", profile_password_confirm: "Изменить пароль? После сохранения используйте новый пароль для входа.",
+    profile_confirm_changes: "Сохранить изменения?\n\n{changes}\n\nОтмена вернёт вас к редактированию."
   });
   Object.assign(DICT.kz, {
     df_auto_refresh: "Әр {sec} секунд сайын жаңартылады",
     df_no_seats: "Осы уақытта бұл тапсырысқа көлікте орын жетпейді.",
     df_offer: "Сапар ұсыну", df_offered_msg: "Ұсыныс жолаушыға жіберілді.",
     df_line_village: "Мен ауылдамын", df_line_city: "Мен Шымкенттемін",
-    df_line_remaining: "Желіде тағы {minutes} мин", df_line_expired: "30 минут өтті. Желіні қайта қосыңыз.",
+    df_line_remaining: "Желіде тағы {minutes} мин", df_line_expired: "10 минут өтті. Желіні қайта қосыңыз.",
     df_online_counts: "Ауданда желіде: ауыл {village} · қала {city}",
     df_upgrade_required: "Дерекқор жаңартуы әлі қолданылмады. Желі мен ұсыныстар әзірге қолжетімсіз.",
     line_location_required: "Қазір ауылдасыз ба, қаладасыз ба — таңдаңыз.",
@@ -549,11 +553,26 @@
     mr_offer_declined: "Ұсыныс қабылданбады. Өтініш қайта ашылды.",
     offer_not_available: "Ұсыныс қолжетімсіз. Өтініштерді жаңартыңыз.",
     profile_driver_zone: "Менің ауданым", profile_zone_reapproval: "Ауданды ауыстырсаңыз, желі өшеді. Жаңа ауданды әкімші мақұлдауы керек.",
-    profile_request_zone: "Ауданды ауыстыру", profile_zone_confirm: "Ауданды ауыстырасыз ба? Әкімшінің қайта мақұлдауы қажет.",
+    profile_request_zone: "Ауданды ауыстыру", profile_zone_confirm: "Ауданды «{zone}» деп өзгертесіз бе? Желі өшеді, әкімшінің қайта мақұлдауы қажет.",
     profile_zone_pending: "Жаңа аудан әкімшінің мақұлдауын күтуде.",
     zone_not_found: "Мұндай аудан табылмады. Бетті жаңартыңыз.",
-    ph_online_village: "Ауылдағы жүргізушілер", ph_online_city: "Шымкенттегі жүргізушілер"
+    ph_online_village: "Ауылдағы жүргізушілер", ph_online_city: "Шымкенттегі жүргізушілер",
+    beta_version: "Бета-нұсқа {version}", driver_completed_trips: "Сапар саны: {n}",
+    profile_name_required: "Атыңызды енгізіңіз.", profile_no_changes: "Өзгеріс жоқ.",
+    profile_password_hidden: "орнатылады", profile_password_confirm: "Құпиясөзді өзгертесіз бе? Сақтағаннан кейін кіру үшін жаңа құпиясөзді пайдаланыңыз.",
+    profile_confirm_changes: "Өзгерістерді сақтайсыз ба?\n\n{changes}\n\nБас тартсаңыз, өңдеуге ораласыз."
   });
+
+  DICT.ru.dt_completed_at = "Выполнена {time}";
+  DICT.kz.dt_completed_at = "{time} орындалды";
+  DICT.ru.trip_check_question = "Поездка состоялась?";
+  DICT.kz.trip_check_question = "Сапар орындалды ма?";
+  DICT.ru.trip_check_yes = "Да, состоялась";
+  DICT.kz.trip_check_yes = "Иә, орындалды";
+  DICT.ru.trip_check_no = "Нет, не состоялась";
+  DICT.kz.trip_check_no = "Жоқ, орындалмады";
+  DICT.ru.trip_check_no_note = "Заявка остаётся активной. Вы сможете подтвердить поездку позже.";
+  DICT.kz.trip_check_no_note = "Өтініш белсенді күйде қалады. Сапарды кейінірек растай аласыз.";
 
   function t(key, params) {
     var table = DICT[currentLang] || DICT.ru;

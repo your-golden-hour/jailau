@@ -187,7 +187,7 @@
     var zone = unwrap(await client.from("zones").select("name").eq("id", row.zone_id).single());
     await getSettings();
     return Object.assign({}, row, { zone_name: zone.name,
-      is_online: !!row.is_online && Date.now() - new Date(row.online_since).getTime() < 30 * 60 * 1000 });
+      is_online: !!row.is_online && Date.now() - new Date(row.online_since).getTime() < 10 * 60 * 1000 });
   }
 
   async function setDriverOnline(online, location) {
@@ -219,7 +219,7 @@
 
   async function adminListDrivers(filter) {
     var results = await Promise.all([
-      client.from("driver_profiles").select("user_id,zone_id,car_brand,plate,seats,fuel_consumption,approval_status,is_online,online_since,online_location"),
+      client.from("driver_profiles").select("user_id,zone_id,car_brand,plate,seats,fuel_consumption,approval_status,is_online,online_since,online_location,completed_trips"),
       client.from("users").select("id,name,phone"),
       client.from("zones").select("id,name")
     ]);
@@ -227,7 +227,7 @@
     return profiles.filter(function (d) { return !filter || filter === "all" || d.approval_status === filter; }).map(function (d) {
       var u = users.find(function (item) { return item.id === d.user_id; });
       var z = zones.find(function (item) { return item.id === d.zone_id; });
-      return Object.assign({}, d, { is_online: !!d.is_online && Date.now() - new Date(d.online_since).getTime() < 30 * 60 * 1000,
+      return Object.assign({}, d, { is_online: !!d.is_online && Date.now() - new Date(d.online_since).getTime() < 10 * 60 * 1000,
         name: u ? u.name : "?", phone: u ? u.phone : "?", zone_name: z ? z.name : null });
     });
   }

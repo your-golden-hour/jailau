@@ -9,6 +9,9 @@ applied by the owner through SQL Editor and was structurally verified on
 2026-10-26. Do not reapply either migration or `schema.sql`. Five old test
 requests remain. The real two-account ride flow is not yet verified. No secret
 or service-role key is needed in chat.
+Migration `supabase/migrations/202610260003_ten_minute_driver_line.sql` was
+applied through the connected Supabase project on 2026-10-26. All six affected
+functions were verified to use 10 minutes; five existing requests remain.
 
 ## Authentication
 
@@ -42,7 +45,7 @@ or service-role key is needed in chat.
 - The offer RPC locks the driver row, then the request row, and counts seats
   for overlapping two-hour windows. Later scheduled rides can be offered.
   Two hours is a pilot assumption, not verified journey duration.
-- Driver village/city lines are effective for 30 minutes.
+- Driver village/city lines are effective for 10 minutes.
   Passenger consent is required after a driver offers a ride; contacts open
   only after consent. District changes require fresh admin approval.
 - Only the passenger can confirm completion, at least one hour after acceptance

@@ -11,6 +11,19 @@
   var t = window.I18N.t;
   var ln = window.I18N.localizedName;
   var API = window.JAILAU_API;
+  var tripCheckTimer = null;
+
+  function clearTimers() {
+    if (tripCheckTimer) { clearTimeout(tripCheckTimer); tripCheckTimer = null; }
+  }
+  function tripPromptDismissed(id) {
+    try { return sessionStorage.getItem("jailau-trip-check-" + id) === "dismissed"; }
+    catch (_) { return false; }
+  }
+  function dismissTripPrompt(id) {
+    try { sessionStorage.setItem("jailau-trip-check-" + id, "dismissed"); }
+    catch (_) { /* A private browser may disable session storage. */ }
+  }
 
   function esc(s) {
     return String(s == null ? "" : s)
@@ -109,7 +122,8 @@
                   '<div class="card-row">' +
                     '<div class="driver-identity"><span class="driver-avatar" aria-hidden="true">' + esc(String(d.name || "?").slice(0, 1).toUpperCase()) + '</span><div>' +
                       '<div class="card-title">' + esc(d.name) + '</div>' +
-                      '<div class="card-meta">' + esc(t("ph_driver_card", { brand: esc(d.car_brand), seats: d.seats })) + '</div>' +
+                      '<div class="card-meta">' + esc(t("ph_driver_card", { brand: d.car_brand, seats: d.seats })) +
+                        (Number(d.completed_trips) > 0 ? ' · ' + esc(t("driver_completed_trips", { n: d.completed_trips })) : '') + '</div>' +
                     '</div></div>' +
                     '<span class="badge badge-online">● ' + esc(t("driver_online")) + '</span>' +
                   '</div>' +
@@ -385,6 +399,7 @@
   /* ================= MY REQUESTS ================= */
 
   function renderMyRequests(container) {
+    clearTimers();
     container.innerHTML = '<p class="muted">' + esc(t("loading")) + '</p>';
 
     API.listMyRequests().then(function (reqs) {
@@ -402,16 +417,64 @@
       container.innerHTML = '<h1 class="screen-title">' + esc(t("mr_title")) + '</h1>' +
         reqs.map(requestCardHtml).join("");
 
-      container.querySelectorAll("[data-confirm-done]").forEach(function (btn) {
-        btn.addEventListener("click", function () {
-          btn.disabled = true;
-          API.confirmTripDone(btn.getAttribute("data-confirm-done")).then(function () {
+      function completionAvailableAt(request) {
+        return Math.max(new Date(request.accepted_at || 0).getTime(),
+          new Date(request.datetime || request.accepted_at || 0).getTime()) + 3600000;
+      }
+
+      function openTripCheck(request) {
+        var dialog = document.createElement("dialog");
+        dialog.className = "trip-check-dialog";
+        dialog.innerHTML = '<h2 class="section-title">' + esc(t("trip_check_question")) + '</h2>' +
+          '<p class="card-meta">' + esc(ln(request.village_name)) + '</p>' +
+          '<div class="trip-check-actions"><button type="button" class="btn btn-primary" data-trip-yes>' +
+            esc(t("trip_check_yes")) + '</button><button type="button" class="btn btn-secondary" data-trip-no>' +
+            esc(t("trip_check_no")) + '</button></div>';
+        container.appendChild(dialog);
+        function close() {
+          if (dialog.open && typeof dialog.close === "function") dialog.close();
+          dialog.remove();
+        }
+        dialog.querySelector("[data-trip-no]").addEventListener("click", function () {
+          dismissTripPrompt(request.id);
+          close();
+          window.JAILAU_APP.toast(t("trip_check_no_note"));
+        });
+        dialog.querySelector("[data-trip-yes]").addEventListener("click", function (event) {
+          event.target.disabled = true;
+          API.confirmTripDone(request.id).then(function () {
+            close();
             window.JAILAU_APP.toast(t("df_trip_done_msg"), "success");
             renderMyRequests(container);
-          }).catch(function () {
-            btn.disabled = false;
-            window.JAILAU_APP.toast(t("error_generic"), "error");
+          }).catch(function (err) {
+            event.target.disabled = false;
+            window.JAILAU_APP.toast(t(err && err.message || "error_generic"), "error");
           });
+        });
+        dialog.addEventListener("cancel", function () {
+          dismissTripPrompt(request.id);
+          close();
+        });
+        if (typeof dialog.showModal === "function") dialog.showModal();
+        else dialog.setAttribute("open", "");
+      }
+
+      var upcoming = reqs.filter(function (r) { return r.status === "accepted" && completionAvailableAt(r) > Date.now(); })
+        .map(completionAvailableAt).sort(function (a, b) { return a - b; })[0];
+      if (upcoming) tripCheckTimer = setTimeout(function () {
+        if (container.isConnected && window.location.hash.split("?")[0] === "#/passenger/my-requests") renderMyRequests(container);
+      }, Math.min(upcoming - Date.now() + 100, 2147483647));
+
+      var ready = reqs.find(function (r) {
+        return r.status === "accepted" && Date.now() >= completionAvailableAt(r) &&
+          !tripPromptDismissed(r.id);
+      });
+      if (ready) openTripCheck(ready);
+
+      container.querySelectorAll("[data-confirm-done]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var request = reqs.find(function (r) { return r.id === btn.getAttribute("data-confirm-done"); });
+          if (request && !container.querySelector(".trip-check-dialog")) openTripCheck(request);
         });
       });
 
@@ -504,6 +567,7 @@
   window.JAILAU_SCREENS.passenger = {
     renderHome: renderHome,
     renderNewRequest: renderNewRequest,
-    renderMyRequests: renderMyRequests
+    renderMyRequests: renderMyRequests,
+    clearTimers: clearTimers
   };
 })();
