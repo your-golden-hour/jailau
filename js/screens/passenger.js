@@ -436,9 +436,27 @@
           dialog.remove();
         }
         dialog.querySelector("[data-trip-no]").addEventListener("click", function () {
-          dismissTripPrompt(request.id);
-          close();
-          window.JAILAU_APP.toast(t("trip_check_no_note"));
+          dialog.innerHTML = '<h2 class="section-title">' + esc(t("trip_keep_question")) + '</h2>' +
+            '<div class="trip-check-actions"><button type="button" class="btn btn-primary" data-trip-keep>' +
+              esc(t("trip_keep_yes")) + '</button><button type="button" class="btn btn-secondary" data-trip-cancel>' +
+              esc(t("trip_keep_cancel")) + '</button></div>';
+          dialog.querySelector("[data-trip-keep]").addEventListener("click", function () {
+            dismissTripPrompt(request.id);
+            close();
+            window.JAILAU_APP.toast(t("trip_check_no_note"));
+          });
+          dialog.querySelector("[data-trip-cancel]").addEventListener("click", function (event) {
+            event.target.disabled = true;
+            API.cancelRequest(request.id).then(function () {
+              dismissTripPrompt(request.id);
+              close();
+              window.JAILAU_APP.toast(t("mr_cancelled_msg"), "success");
+              renderMyRequests(container);
+            }).catch(function (err) {
+              event.target.disabled = false;
+              window.JAILAU_APP.toast(t(err && err.message || "mr_cancel_not_possible"), "error");
+            });
+          });
         });
         dialog.querySelector("[data-trip-yes]").addEventListener("click", function (event) {
           event.target.disabled = true;

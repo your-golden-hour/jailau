@@ -571,6 +571,12 @@
   DICT.kz.trip_check_yes = "Иә, орындалды";
   DICT.ru.trip_check_no = "Нет, не состоялась";
   DICT.kz.trip_check_no = "Жоқ, орындалмады";
+  DICT.ru.trip_keep_question = "Оставить заявку активной?";
+  DICT.kz.trip_keep_question = "Өтінішті белсенді қалдырасыз ба?";
+  DICT.ru.trip_keep_yes = "Да, оставить";
+  DICT.kz.trip_keep_yes = "Иә, қалдыру";
+  DICT.ru.trip_keep_cancel = "Нет, отменить заявку";
+  DICT.kz.trip_keep_cancel = "Жоқ, өтінішті болдырмау";
   DICT.ru.trip_check_no_note = "Заявка остаётся активной. Вы сможете подтвердить поездку позже.";
   DICT.kz.trip_check_no_note = "Өтініш белсенді күйде қалады. Сапарды кейінірек растай аласыз.";
 

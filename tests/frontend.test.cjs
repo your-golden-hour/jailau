@@ -92,7 +92,7 @@ test('passenger cannot see completion button before one hour', async () => {
   } finally {dom.window.close();}
 });
 
-test('after one hour passenger sees yes/no; no keeps the ride active', async () => {
+test('after one hour passenger can keep an unfinished ride active', async () => {
   const dom=load(),w=dom.window;
   try {
     let status='accepted',doneCalls=0;
@@ -105,6 +105,8 @@ test('after one hour passenger sees yes/no; no keeps the ride active', async () 
     await flush();
     assert.match(screen.querySelector('.trip-check-dialog').textContent,/Поездка состоялась\?/);
     screen.querySelector('[data-trip-no]').click();
+    assert.match(screen.querySelector('.trip-check-dialog').textContent,/Оставить заявку активной\?/);
+    screen.querySelector('[data-trip-keep]').click();
     assert.equal(doneCalls,0);
     assert.ok(screen.querySelector('[data-confirm-done]'));
     screen.querySelector('[data-confirm-done]').click();
@@ -112,6 +114,28 @@ test('after one hour passenger sees yes/no; no keeps the ride active', async () 
     await flush(); await flush();
     assert.equal(doneCalls,1);
     assert.match(screen.textContent,/Выполнена/);
+  } finally {w.JAILAU_SCREENS.passenger.clearTimers();dom.window.close();}
+});
+
+test('after an unfinished ride passenger can cancel instead of keeping it', async () => {
+  const dom=load(),w=dom.window;
+  try {
+    let status='accepted',cancelCalls=0,doneCalls=0;
+    w.JAILAU_API.listMyRequests=async () => [{id:'ride-cancel',status,direction:'village_to_city',
+      village_name:{ru:'Село',kz:'Ауыл'},negotiable:true,when:'asap',seats:1,
+      accepted_at:new Date(Date.now()-70*60000).toISOString(),driver_name:'Driver'}];
+    w.JAILAU_API.cancelRequest=async () => {cancelCalls++;status='cancelled';};
+    w.JAILAU_API.confirmTripDone=async () => {doneCalls++;};
+    const screen=w.document.getElementById('screen');
+    w.JAILAU_SCREENS.passenger.renderMyRequests(screen);
+    await flush();
+    screen.querySelector('[data-trip-no]').click();
+    screen.querySelector('[data-trip-cancel]').click();
+    await flush(); await flush();
+    assert.equal(cancelCalls,1);
+    assert.equal(doneCalls,0);
+    assert.match(screen.textContent,/Отменена/);
+    assert.equal(screen.querySelector('[data-confirm-done]'),null);
   } finally {w.JAILAU_SCREENS.passenger.clearTimers();dom.window.close();}
 });
 

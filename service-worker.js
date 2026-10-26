@@ -9,7 +9,7 @@
 
 "use strict";
 
-var CACHE_NAME = "jailau-shell-v11";
+var CACHE_NAME = "jailau-shell-v12";
 
 var SHELL_ASSETS = [
   "./",

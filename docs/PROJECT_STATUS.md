@@ -3,7 +3,11 @@
 Updated 2026-10-26. Codex owns development; Qwen and Qwen Coder are no longer used.
 Repository: https://github.com/your-golden-hour/jailau. Current review branch:
 `codex/website-rebuild`, PR #4. The owner explicitly approved beta v0.0.1
-publication on 2026-10-26; deployment is being prepared.
+publication on 2026-10-26; deployment is being prepared. Verified commit
+`9718350` was pushed to `release`; Cloudflare GitHub access is limited to this
+repository, with Pages setup selecting `release` and an allowlisted `dist/`
+build. Deployment has not been submitted yet. GitHub branch protection still
+needs to be verified after the owner's email confirmation.
 
 ## Current change in progress (database applied; website not published)
 
@@ -15,8 +19,8 @@ publication on 2026-10-26; deployment is being prepared.
   request access or EXECUTE on the new RPCs; `authenticated` has no direct
   request UPDATE grant. A no-session RPC smoke test returned zero private rows.
 - This is structural/permission verification, **not** a full live two-account
-  ride test. The frontend is still a local/review build; nothing was promoted
-  to `release` or published.
+  ride test. The frontend is still a local/review build; `release` has the
+  verified beta but is not published yet.
 - Migration `202610260003_ten_minute_driver_line.sql` was applied through the
   Supabase connector. All six affected live functions use 10 minutes and
   retain no anonymous EXECUTE permission; five requests (two accepted) remain.
@@ -24,7 +28,11 @@ publication on 2026-10-26; deployment is being prepared.
   only when positive. Name, phone, district and password changes require
   confirmation. The login screen displays the version. Completed rides are
   labelled in driver history. After the one-hour server threshold, a passenger
-  sees a yes/no completion dialog; No keeps the ride active.
+  sees a yes/no completion dialog. No now opens a second choice: keep the
+  accepted request active or cancel it. Migration
+  `202610260004_cancel_accepted_request.sql` is applied to the cloud database;
+  cancellation of an accepted request is owner-only, clears contact visibility,
+  releases capacity and does not award a trip. Existing five requests remain.
 - New workflow: driver sends an offer; only the passenger accepts or declines.
   Contact phones remain hidden until the passenger accepts. Offered/accepted
   seats count against the same two-hour capacity window. The seat-limit error
@@ -39,7 +47,7 @@ publication on 2026-10-26; deployment is being prepared.
   lacks several Kazakh glyphs, so the CSS stack falls back to device Noto Sans
   or system sans for those letters; the RU/KZ browser preview rendered them.
   Full low-end Android glyph QA remains to do. No new paid service.
-- Local suite: 22 tests pass after live migration, including offer
+- Local suite: 23 tests pass after live migration, including offer
   privacy/decline, line expiry, mode filtering, seat error, district
   reapproval, and bilingual UI. The real-browser two-account flow still
   requires follow-up.
@@ -62,7 +70,7 @@ publication on 2026-10-26; deployment is being prepared.
   form and driver feed already handle both directions; cards simplified.
 - Admin driver actions now read the matching `data-*` ID attribute before
   calling the status RPC, so approve/reject/block/unblock target the selected
-  driver. The current PWA shell cache is v11, including the local font.
+  driver. The current PWA shell cache is v12, including the local font.
 - Database migration `supabase/migrations/202610260001_email_profile_capacity.sql`
   applied to cloud project `ubjcvqqxkgshguiwikqu`. Phone is unique contact data,
   not Auth identity. Old phone-based `complete_profile` signature has no client
@@ -73,7 +81,7 @@ publication on 2026-10-26; deployment is being prepared.
   whichever is later; completion increments the counter once.
 - Seven public tables have RLS. Local PGlite test exercises roles, private phone
   reveal, zone/approval restrictions, seat limit, completion delay, and counter.
-  All 22 automated tests pass. Static PWA shell avoids caching API responses.
+  All 23 automated tests pass. Static PWA shell avoids caching API responses.
 
 ## Decisions and limitations
 
@@ -84,6 +92,12 @@ publication on 2026-10-26; deployment is being prepared.
   their number. Calls/contact are only available after request acceptance.
 - Two-hour occupancy is a provisional journey window; tune against verified
   route times before wider use. The one-hour completion floor is server-enforced.
+- The owner's broader ride-lifecycle ideas were reviewed. For v0.0.1 we retained
+  existing driver offers, passenger acceptance, private contacts and atomic
+  seat reservation, and added the keep/cancel choice. A separate ride-start
+  event, two-sided completion, disputes, passenger trip count, and reposting
+  after cancellation are deferred: the current database has one request status
+  and only passenger-confirmed completion. Do not claim these deferred flows work.
 - Supabase has a test admin, an active synthetic driver and one configured
   zone/village. The database contains test requests, including accepted ones.
   Preserve these while migrating; do not import fake geography.
@@ -100,8 +114,7 @@ publication on 2026-10-26; deployment is being prepared.
    live 10-minute expiry with disposable accounts.
 2. Test two concurrent offers against live cloud, scheduling boundaries,
    completion at one hour, mobile slow-network behavior, and app installability.
-3. Finish review of PR #4, promote to protected `release` under the owner's
-   v0.0.1 authorization, publish Cloudflare Pages and disable preview deploys
+3. Verify branch protection for `release`, publish Cloudflare Pages and disable preview deploys
    for unreviewed branches. Configure the exact production Auth redirect URL.
 
 Security Advisor currently flags 13 intentional signed-in `SECURITY DEFINER`

@@ -29,6 +29,7 @@ test('PostgreSQL schema: roles, RLS, contacts, lifecycle and exactly-once counte
     await db.exec(fs.readFileSync('supabase/schema.sql', 'utf8'));
     await db.exec(fs.readFileSync('supabase/migrations/202610260002_driver_lines_and_offers.sql', 'utf8'));
     await db.exec(fs.readFileSync('supabase/migrations/202610260003_ten_minute_driver_line.sql', 'utf8'));
+    await db.exec(fs.readFileSync('supabase/migrations/202610260004_cancel_accepted_request.sql', 'utf8'));
     await db.query('insert into public.zones(id,name) values ($1,$3),($2,$3)', [id(1),id(2),{ru:'Test zone',kz:'Test zone'}]);
     await db.query(`insert into public.villages(id,zone_id,name,lat,lng,km_to_city)
       values($1,$2,$3,0,0,22),($4,$5,$3,0,0,30)`,[id(11),id(1),{ru:'Test village',kz:'Test village'},id(12),id(2)]);
@@ -88,7 +89,7 @@ test('PostgreSQL schema: roles, RLS, contacts, lifecycle and exactly-once counte
     await denied(id(24),'select public.release_request($1)',[r]);
     await denied(id(23),'select public.confirm_trip_done($1)',[r]);
     await denied(id(22),'select public.confirm_trip_done($1)',[r]);
-    await denied(id(21),'select public.cancel_request($1)',[r]);
+    await denied(id(22),'select public.cancel_request($1)',[r]);
     await as(id(23),'select public.release_request($1)',[r]);
     assert.equal((await as(id(21),"select public.list_requests('mine') as r"))[0].r.driver_phone,null);
     assert.equal((await as(id(23),"select public.list_requests('feed') as r"))[0].r.passenger_phone,null);
@@ -100,6 +101,22 @@ test('PostgreSQL schema: roles, RLS, contacts, lifecycle and exactly-once counte
     await denied(id(21),'select public.confirm_trip_done($1)',[r]);
     const count = await db.query('select completed_trips from public.driver_profiles where user_id=$1',[id(24)]);
     assert.equal(count.rows[0].completed_trips,1);
+    const cancelledRide = await create(11,1);
+    await as(id(27),'select public.accept_request($1)',[cancelledRide]);
+    await as(id(21),'select public.respond_to_offer($1,true)',[cancelledRide]);
+    const nextRide = await create(11,1);
+    await denied(id(27),'select public.accept_request($1)',[nextRide]);
+    await denied(id(22),'select public.cancel_request($1)',[cancelledRide]);
+    await denied(id(27),'select public.cancel_request($1)',[cancelledRide]);
+    await as(id(21),'select public.cancel_request($1)',[cancelledRide]);
+    await denied(id(21),'select public.cancel_request($1)',[cancelledRide]);
+    await denied(id(21),'select public.confirm_trip_done($1)',[cancelledRide]);
+    const cancelledRow = await db.query('select status,driver_id,accepted_at from public.requests where id=$1',[cancelledRide]);
+    assert.deepEqual(cancelledRow.rows[0],{status:'cancelled',driver_id:null,accepted_at:null});
+    assert.equal((await as(id(21),"select public.list_requests('mine') as r")).find(x => x.r.id === cancelledRide).r.driver_phone,null);
+    await as(id(27),'select public.accept_request($1)',[nextRide]);
+    await as(id(27),'select public.release_request($1)',[nextRide]);
+    assert.equal((await db.query('select completed_trips from public.driver_profiles where user_id=$1',[id(27)])).rows[0].completed_trips,0);
     const r2 = await create(11);
     await as(id(23),'select public.accept_request($1)',[r2]);
     const r3 = await create(11,3);

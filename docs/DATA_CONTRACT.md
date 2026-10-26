@@ -147,15 +147,18 @@ State machine:
 
 ```
 open ──driver offer──▶ offered ──passenger accepts──▶ accepted ──confirm_done──▶ done
-  │                     │     │                          │
-  │ cancel              │     │ decline/cancel           │ release (driver)
-  ▼                     │     ▼                          ▼
-cancelled               └──▶ open                       open
+  │                     │   │                            │   │
+  │ passenger cancels   │   │ decline/driver release     │   │ driver release
+  ▼                     │   ▼                            │   ▼
+cancelled ◀──────────────┘  open      passenger cancels ──┘  open
 ```
 
-- Only the owning passenger may cancel while `status = open` or `offered`.
+- Only the owning passenger may cancel while `status = open`, `offered`, or
+  `accepted`. Cancellation clears the driver assignment and acceptance time,
+  releases the reserved seats, hides contact phones, and never increments a
+  completion counter. A `done` or already `cancelled` request cannot be cancelled.
 - Offering is atomic via `accept_request`: locks the driver's profile, verifies
-  `active`, 30-minute line, current village/city side, seats and district, then
+  `active`, 10-minute line, current village/city side, seats and district, then
   checks offered plus accepted seats in overlapping two-hour windows.
   First driver wins the offer; losing calls receive `df_already_taken`. The
   passenger alone may accept or decline using `respond_to_offer`. Clients have no
@@ -163,6 +166,11 @@ cancelled               └──▶ open                       open
 - Only the owning passenger can confirm an accepted ride as done. Driver/admin
   completion is forbidden. Confirmation opens no sooner than one hour after
   acceptance or scheduled start. The same transaction increments `completed_trips` once.
+- At that one-hour check, a passenger answering No chooses to keep the accepted
+  request active or cancel it. There is no automatic repost or completion.
+- A distinct ride-start state, two-sided completion, disputes, and passenger
+  counters are deferred beyond beta v0.0.1; they need an explicit lifecycle
+  design and must not be represented as working features.
 - A released or declined request returns to the feed with `driver_id = null`.
 
 ### Privacy / field visibility matrix (critical for RLS policies)
@@ -246,13 +254,13 @@ except the synchronous `estimateFuelCost` helper):
 | `createRequest` | `{direction, village_id, pickup_spot, when, datetime, seats, negotiable, price, comment}` | request | validates seats 1–4 |
 | `listMyRequests` | – | decorated requests[] | viewer=`passenger` (driver phone after accept) |
 | `cancelRequest` | `request_id` | decorated request | only own `open`/`offered` requests |
-| `listOpenRequestsForDriver` | – | decorated requests[] | district and current side filtered; requires active 30-minute line; no phones |
+| `listOpenRequestsForDriver` | – | decorated requests[] | district and current side filtered; requires active 10-minute line; no phones |
 | `getDriverStatus` | – | `{is_online, approval_status, zone_name, …}` | own profile |
 | `acceptRequest` | `request_id` | decorated offer | atomic driver offer; fails `df_already_taken`/`df_no_seats` |
 | `respondToOffer` | `request_id, boolean` | decorated request | passenger accepts or declines |
 | `releaseRequest` | `request_id` | decorated request | own `offered`/`accepted` |
 | `confirmTripDone` | `request_id` | decorated request | owning passenger only; `accepted` → `done`; increments assigned driver's counter once |
-| `setDriverOnline` | `boolean, village\|city` | `{is_online, online_since, online_location}` | requires `active`; 30-minute lease |
+| `setDriverOnline` | `boolean, village\|city` | `{is_online, online_since, online_location}` | requires `active`; 10-minute lease |
 | `onlineDriverCounts` | `zone_id` | `{village,city}` | approved driver's district |
 | `requestDriverZone` | `zone_id` | own driver profile | goes offline and pending approval |
 | `listOnlineDriversByVillage` | `village_id, village\|city` | `[{name, car_brand, seats, online_since}]` | **phones excluded by design** |
