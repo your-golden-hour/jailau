@@ -29,7 +29,7 @@ for(const file of files) {
   if(!fs.existsSync(file)||!fs.statSync(file).isFile()) continue;
   const data=fs.readFileSync(file);
   if(file!=='tests/audit.cjs')scan(data.toString('utf8'),`working file ${file}`);
-  if(/^(?:index\.html|icon\.svg|service-worker\.js|manifest\.webmanifest|js\/|css\/)/.test(file.replaceAll('\\','/'))) {
+  if(/^(?:index\.html|icon\.svg|service-worker\.js|manifest\.webmanifest|js\/|css\/|fonts\/.*\.ttf$)/.test(file.replaceAll('\\','/'))) {
     shellBytes+=data.length;gzipBytes+=zlib.gzipSync(data).length;
   }
 }

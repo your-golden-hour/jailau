@@ -14,7 +14,7 @@ function load() {
     listMyRequests: async () => [], createRequest: async () => ({})
   };
   w.JAILAU_APP = {toast(){},onLogin(){},getCurrentUser:() => ({name:'Test',phone:'+70000000001',email:'test@example.com',role:'passenger'})};
-  for (const file of ['config','i18n','screens/auth','screens/passenger','screens/profile']) w.eval(fs.readFileSync(`js/${file}.js`,'utf8'));
+  for (const file of ['config','i18n','screens/auth','screens/passenger','screens/profile','screens/driver']) w.eval(fs.readFileSync(`js/${file}.js`,'utf8'));
   return dom;
 }
 const flush = () => new Promise(resolve => setImmediate(resolve));
@@ -71,6 +71,74 @@ test('passenger cannot see completion button before one hour', async () => {
     await flush();
     assert.equal(w.document.querySelector('[data-confirm-done]'),null);
     assert.match(w.document.body.textContent,/Подтверждение доступно после/);
+  } finally {dom.window.close();}
+});
+
+test('passenger must accept or decline a driver offer before contacts appear', async () => {
+  const dom=load(),w=dom.window;
+  try {
+    let response;
+    w.JAILAU_API.listMyRequests=async () => [{id:'r2',status:'offered',direction:'village_to_city',
+      village_name:{ru:'Село',kz:'Ауыл'},negotiable:true,when:'asap',seats:2,
+      driver_name:'Test driver',driver_phone:null,driver_car_brand:'Test car'}];
+    w.JAILAU_API.respondToOffer=async (id,accept) => {response={id,accept};return {};};
+    w.JAILAU_SCREENS.passenger.renderMyRequests(w.document.getElementById('screen'));
+    await flush();
+    assert.equal(w.document.querySelector('[data-confirm-done]'),null);
+    assert.ok(w.document.querySelector('[data-offer-response][data-accept="true"]'));
+    assert.ok(w.document.querySelector('[data-offer-response][data-accept="false"]'));
+    assert.doesNotMatch(w.document.body.textContent,/\+70000000001/);
+    w.document.querySelector('[data-offer-response][data-accept="false"]').click();
+    await flush();
+    assert.deepEqual(response,{id:'r2',accept:false});
+  } finally {dom.window.close();}
+});
+
+test('driver switches village and city line without extending the same lease', async () => {
+  const dom=load(),w=dom.window;
+  try {
+    const calls=[];
+    w.JAILAU_API.getDriverStatus=async () => ({approval_status:'active',is_online:false,
+      online_since:null,online_location:null,zone_id:'z1',zone_name:{ru:'Зона',kz:'Аймақ'},fuel_consumption:8});
+    w.JAILAU_API.listOpenRequestsForDriver=async () => [];
+    w.JAILAU_API.onlineDriverCounts=async () => ({village:1,city:2});
+    w.JAILAU_API.setDriverOnline=async (online,mode) => {
+      calls.push({online,mode});
+      return {is_online:online,online_location:online?mode:null,online_since:online?new Date().toISOString():null};
+    };
+    w.JAILAU_SCREENS.driver.renderFeed(w.document.getElementById('screen'));
+    await flush(); await flush();
+    assert.match(w.document.querySelector('#online-counts').textContent,/село 1.*город 2/);
+    w.document.querySelector('[data-line-mode="village"]').click();
+    await flush();
+    assert.deepEqual(calls[0],{online:true,mode:'village'});
+    assert.ok(w.document.querySelector('[data-line-mode="village"].active'));
+    w.document.querySelector('[data-line-mode="city"]').click();
+    await flush();
+    assert.deepEqual(calls[1],{online:true,mode:'city'});
+    w.document.querySelector('[data-line-mode="city"]').click();
+    await flush();
+    assert.deepEqual(calls[2],{online:false,mode:'city'});
+  } finally {w.JAILAU_SCREENS.driver.clearTimers();dom.window.close();}
+});
+
+test('driver zone change asks for confirmation and awaits admin approval', async () => {
+  const dom=load(),w=dom.window;
+  try {
+    w.JAILAU_APP.getCurrentUser=() => ({name:'Driver',phone:'+70000000001',email:'driver@example.com',role:'driver'});
+    w.JAILAU_API.getDriverStatus=async () => ({zone_id:'z1',approval_status:'active'});
+    w.JAILAU_API.listZonesAndVillages=async () => [
+      {id:'z1',name:{ru:'Первый',kz:'Бірінші'}},{id:'z2',name:{ru:'Второй',kz:'Екінші'}}];
+    let changed;
+    w.JAILAU_API.requestDriverZone=async id => {changed=id;return {zone_id:id,approval_status:'pending'};};
+    w.confirm=() => true;
+    w.JAILAU_SCREENS.profile.render(w.document.getElementById('screen'),false);
+    await flush();
+    w.document.querySelector('#profile-zone').value='z2';
+    w.document.querySelector('#driver-zone-form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+    await flush();
+    assert.equal(changed,'z2');
+    assert.match(w.document.querySelector('#zone-message').textContent,/ожидает одобрения/);
   } finally {dom.window.close();}
 });
 

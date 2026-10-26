@@ -12,7 +12,7 @@ project; the existing cloud project received the migration under
 **Non-negotiable product constraints**
 
 - Zero budget: free tier only. No SMS providers, no Google Maps, no paid APIs.
-- Privacy-first: phone numbers are hidden until a driver **accepts** a request.
+- Privacy-first: phone numbers are hidden until the passenger **accepts the driver's offer**.
 - The platform is **not a carrier**. Payments are cash, passenger ↔ driver, off-platform.
 - Dictionary/JSON keys remain Russian (`ru`) and Kazakh (`kz`); the HTML language
   tag uses the standard Kazakh language code `kk`.
@@ -108,10 +108,14 @@ One-to-one extension of `users` where `role = 'driver'`.
 | `approval_status` | enum `pending` \| `active` \| `rejected` \| `blocked` | ✔ | Admin-managed lifecycle |
 | `is_online` | boolean | ✔ | Feed visibility switch |
 | `online_since` | timestamptz | nullable | Set when going online, cleared when offline |
+| `online_location` | `village` \| `city` | nullable | Current side of the trip while on line |
 | `completed_trips` | integer | ✔ | Default 0; only `confirm_trip_done` increments it, once per completed request |
 
 Lifecycle: `pending → active` (approve) · `pending → rejected` · `active → blocked` ·
 `blocked/rejected → active` (unblock). Going online requires `active`.
+An online session is effective for 30 minutes from `online_since`; expiry is
+checked on the server even if the browser is closed. Switching districts is a
+privileged RPC that turns the line off and returns approval to `pending`.
 
 ---
 
@@ -132,32 +136,34 @@ A ride request posted by a passenger. This is the core entity.
 | `price` | int (tenge) | if not negotiable | Passenger’s offered price; null when `negotiable` |
 | `negotiable` | boolean | ✔ | “Договорная / Келіссөзбен” |
 | `comment` | text | optional | Baggage, kids, livestock… |
-| `status` | enum `open` \| `accepted` \| `done` \| `cancelled` | ✔ | State machine below |
-| `driver_id` | uuid | nullable | FK → `users.id`, set on accept |
+| `status` | enum `open` \| `offered` \| `accepted` \| `done` \| `cancelled` | ✔ | State machine below |
+| `driver_id` | uuid | nullable | FK → `users.id`, set on offer |
 | `created_at` | timestamptz | ✔ | |
+| `offered_at` | timestamptz | nullable | When the driver offers a ride |
 | `accepted_at` | timestamptz | nullable | |
 | `done_at` | timestamptz | nullable | |
 
 State machine:
 
 ```
-open ──accept──▶ accepted ──confirm_done──▶ done
-  │                  │
-  │ cancel (own)     │ release (driver)
-  ▼                  ▼
-cancelled          open   (driver_id cleared)
+open ──driver offer──▶ offered ──passenger accepts──▶ accepted ──confirm_done──▶ done
+  │                     │     │                          │
+  │ cancel              │     │ decline/cancel           │ release (driver)
+  ▼                     │     ▼                          ▼
+cancelled               └──▶ open                       open
 ```
 
-- Only the owning passenger may cancel while `status = open`.
-- Accept is atomic via `accept_request`: locks the driver's profile, verifies
-  `active`, online state, seats and zone, then checks the sum of seats in overlapping
-  two-hour windows before conditionally updating an open request.
-  First driver wins; losing calls receive `df_already_taken`. Clients have no
+- Only the owning passenger may cancel while `status = open` or `offered`.
+- Offering is atomic via `accept_request`: locks the driver's profile, verifies
+  `active`, 30-minute line, current village/city side, seats and district, then
+  checks offered plus accepted seats in overlapping two-hour windows.
+  First driver wins the offer; losing calls receive `df_already_taken`. The
+  passenger alone may accept or decline using `respond_to_offer`. Clients have no
   direct INSERT/UPDATE/DELETE privileges on requests.
 - Only the owning passenger can confirm an accepted ride as done. Driver/admin
   completion is forbidden. Confirmation opens no sooner than one hour after
   acceptance or scheduled start. The same transaction increments `completed_trips` once.
-- A released request returns to the feed with `driver_id = null`.
+- A released or declined request returns to the feed with `driver_id = null`.
 
 ### Privacy / field visibility matrix (critical for RLS policies)
 
@@ -166,15 +172,17 @@ cancelled          open   (driver_id cleared)
 | Anonymous / unauthenticated | ✘ | ✘ | ✘ | ✘ |
 | Passenger browsing feed (none — passengers don’t browse) | – | – | – | – |
 | Driver, request `open` (feed card) | ✔ | ✘ | ✘ | ✘ |
-| Driver, own accepted request | ✔ | ✔ (after accept) | ✔ | ✘ |
+| Driver, own offered request | ✔ | ✘ | ✔ | ✘ |
+| Driver, own accepted request | ✔ | ✔ (after passenger consent) | ✔ | ✘ |
 | Passenger, own request `open` | ✔ | n/a | ✘ | ✘ |
-| Passenger, own request `accepted/done` | ✔ | n/a | ✔ | ✔ (after accept) |
+| Passenger, own request `offered` | ✔ | n/a | ✔ | ✘ |
+| Passenger, own request `accepted/done` | ✔ | n/a | ✔ | ✔ (after consent) |
 | Admin | ✔ | ✔ | ✔ | ✔ |
 
 Implementation notes for Supabase:
 
 - Store phones in `users.phone`; expose them via a **view or RPC** that joins
-  `requests` and returns the phone **only** when `requests.driver_id = auth.uid()`
+  `requests` and returns the phone **only** when `requests.driver_id = auth.uid() AND status in ('accepted','done')`
   (for passenger phone) or `requests.passenger_id = auth.uid() AND status in ('accepted','done')`
   (for driver phone). Never select raw `users.phone` client-side.
 - `jailau_private.request_json()` enforces this on the server.
@@ -237,15 +245,18 @@ except the synchronous `estimateFuelCost` helper):
 | `setUserVillage` | `village_id` | public user | passenger home village |
 | `createRequest` | `{direction, village_id, pickup_spot, when, datetime, seats, negotiable, price, comment}` | request | validates seats 1–4 |
 | `listMyRequests` | – | decorated requests[] | viewer=`passenger` (driver phone after accept) |
-| `cancelRequest` | `request_id` | decorated request | only own `open` requests |
-| `listOpenRequestsForDriver` | – | decorated requests[] | zone-filtered, requires `active` + `is_online`; no phones |
+| `cancelRequest` | `request_id` | decorated request | only own `open`/`offered` requests |
+| `listOpenRequestsForDriver` | – | decorated requests[] | district and current side filtered; requires active 30-minute line; no phones |
 | `getDriverStatus` | – | `{is_online, approval_status, zone_name, …}` | own profile |
-| `acceptRequest` | `request_id` | decorated request | atomic; fails `df_already_taken` |
-| `releaseRequest` | `request_id` | decorated request | own `accepted` only |
+| `acceptRequest` | `request_id` | decorated offer | atomic driver offer; fails `df_already_taken`/`df_no_seats` |
+| `respondToOffer` | `request_id, boolean` | decorated request | passenger accepts or declines |
+| `releaseRequest` | `request_id` | decorated request | own `offered`/`accepted` |
 | `confirmTripDone` | `request_id` | decorated request | owning passenger only; `accepted` → `done`; increments assigned driver's counter once |
-| `setDriverOnline` | `boolean` | `{is_online, online_since}` | requires `active` |
-| `listOnlineDriversByVillage` | `village_id` | `[{name, car_brand, seats, online_since}]` | **phones excluded by design** |
-| `listDriverAcceptedRequests` | – | decorated requests[] | viewer=`driver-owner`, passenger phone revealed |
+| `setDriverOnline` | `boolean, village\|city` | `{is_online, online_since, online_location}` | requires `active`; 30-minute lease |
+| `onlineDriverCounts` | `zone_id` | `{village,city}` | approved driver's district |
+| `requestDriverZone` | `zone_id` | own driver profile | goes offline and pending approval |
+| `listOnlineDriversByVillage` | `village_id, village\|city` | `[{name, car_brand, seats, online_since}]` | **phones excluded by design** |
+| `listDriverAcceptedRequests` | – | decorated requests[] | own offered/accepted/done; phone only after consent |
 | `estimateFuelCost` | `km, consumption?` | `{km, coefficient, consumption, fuel_price, liters, cost_tenge}` | pure calc from `settings` |
 | `adminApproveDriver` / `adminRejectDriver` / `adminBlockDriver` / `adminUnblockDriver` | `user_id` | `{ok, messageKey, driver}` | admin only |
 | `adminListDrivers` | `statusFilter ("pending"\|"all")` | driver rows incl. phone (admin view) | admin only |
@@ -265,8 +276,8 @@ can translate it directly.
 
 1. Create tables per §2–§8 (SQL above described structurally; add indexes on
    `requests(status, village_id)`, `villages(zone_id)`, `driver_profiles(zone_id, is_online)`).
-2. Enable RLS; write policies matching the visibility matrix in §6 — phones only after accept.
-3. Implement `acceptRequest` as a Postgres RPC (`security definer`) for atomic first-wins.
+2. Enable RLS; write policies matching the visibility matrix in §6 — phones only after passenger consent.
+3. Implement `acceptRequest` as a Postgres RPC (`security definer`) for atomic first-wins offers.
 4. Put the project URL + **publishable key only** into `js/config.js` (never service_role).
 5. The browser now uses Supabase only; it fails closed when configuration is missing.
 6. Email/password Auth is available; Google OAuth needs owner Google Cloud setup.

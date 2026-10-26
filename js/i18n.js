@@ -514,6 +514,47 @@
     trip_confirm_after: "Растау {time} кейін қолжетімді"
   });
 
+  Object.assign(DICT.ru, {
+    df_auto_refresh: "Обновляется каждые {sec} секунд",
+    df_no_seats: "В салоне не хватает мест для этой заявки в выбранное время.",
+    df_offer: "Предложить поездку", df_offered_msg: "Предложение отправлено пассажиру.",
+    df_line_village: "Я в селе", df_line_city: "Я в Шымкенте",
+    df_line_remaining: "На линии ещё {minutes} мин", df_line_expired: "30 минут прошли. Включите линию снова.",
+    df_online_counts: "На линии в районе: село {village} · город {city}",
+    df_upgrade_required: "Обновление базы данных ещё не применено. Линия и предложения пока недоступны.",
+    line_location_required: "Выберите, где вы сейчас: в селе или в городе.",
+    dt_offered: "Ждут ответа пассажира", dt_waiting_offer: "Телефон появится после согласия пассажира",
+    mr_status_offered: "Водитель предложил поездку", mr_accept_offer: "Подтвердить поездку",
+    mr_decline_offer: "Отказаться", mr_offer_accepted: "Поездка согласована. Теперь доступны контакты.",
+    mr_offer_declined: "Предложение отклонено. Заявка снова открыта.",
+    offer_not_available: "Предложение уже недоступно. Обновите заявки.",
+    profile_driver_zone: "Мой район", profile_zone_reapproval: "При смене района линия выключится. Администратор должен одобрить новый район.",
+    profile_request_zone: "Сменить район", profile_zone_confirm: "Сменить район? Потребуется новое одобрение администратора.",
+    profile_zone_pending: "Новый район ожидает одобрения администратора.",
+    zone_not_found: "Такой район не найден. Обновите страницу.",
+    ph_online_village: "Водители в селе", ph_online_city: "Водители в Шымкенте"
+  });
+  Object.assign(DICT.kz, {
+    df_auto_refresh: "Әр {sec} секунд сайын жаңартылады",
+    df_no_seats: "Осы уақытта бұл тапсырысқа көлікте орын жетпейді.",
+    df_offer: "Сапар ұсыну", df_offered_msg: "Ұсыныс жолаушыға жіберілді.",
+    df_line_village: "Мен ауылдамын", df_line_city: "Мен Шымкенттемін",
+    df_line_remaining: "Желіде тағы {minutes} мин", df_line_expired: "30 минут өтті. Желіні қайта қосыңыз.",
+    df_online_counts: "Ауданда желіде: ауыл {village} · қала {city}",
+    df_upgrade_required: "Дерекқор жаңартуы әлі қолданылмады. Желі мен ұсыныстар әзірге қолжетімсіз.",
+    line_location_required: "Қазір ауылдасыз ба, қаладасыз ба — таңдаңыз.",
+    dt_offered: "Жолаушы жауабын күтуде", dt_waiting_offer: "Телефон жолаушы келіскен соң көрінеді",
+    mr_status_offered: "Жүргізуші сапар ұсынды", mr_accept_offer: "Сапарды растау",
+    mr_decline_offer: "Бас тарту", mr_offer_accepted: "Сапар келісілді. Енді байланыс деректері қолжетімді.",
+    mr_offer_declined: "Ұсыныс қабылданбады. Өтініш қайта ашылды.",
+    offer_not_available: "Ұсыныс қолжетімсіз. Өтініштерді жаңартыңыз.",
+    profile_driver_zone: "Менің ауданым", profile_zone_reapproval: "Ауданды ауыстырсаңыз, желі өшеді. Жаңа ауданды әкімші мақұлдауы керек.",
+    profile_request_zone: "Ауданды ауыстыру", profile_zone_confirm: "Ауданды ауыстырасыз ба? Әкімшінің қайта мақұлдауы қажет.",
+    profile_zone_pending: "Жаңа аудан әкімшінің мақұлдауын күтуде.",
+    zone_not_found: "Мұндай аудан табылмады. Бетті жаңартыңыз.",
+    ph_online_village: "Ауылдағы жүргізушілер", ph_online_city: "Шымкенттегі жүргізушілер"
+  });
+
   function t(key, params) {
     var table = DICT[currentLang] || DICT.ru;
     var str = table[key];

@@ -26,7 +26,8 @@
 
   function codeFor(error) {
     var code = String(error && (error.code || error.message) || "");
-    if (/^(df_need_approved|df_already_taken|df_no_seats|trip_too_early|mr_cancel_not_possible|err_datetime_required|err_village_required|err_seats_range|err_price_invalid|ad_err_num)$/.test(code)) return code;
+    if (/online_location|respond_to_offer|online_driver_counts|request_driver_zone/i.test(String(error && error.message || ""))) return "df_upgrade_required";
+    if (/^(df_need_approved|df_already_taken|df_no_seats|trip_too_early|mr_cancel_not_possible|offer_not_available|line_location_required|zone_not_found|err_datetime_required|err_village_required|err_seats_range|err_price_invalid|ad_err_num)$/.test(code)) return code;
     if (/phone_exists|user_already_exists|already.registered|duplicate key.*phone/i.test(code)) return "err_phone_exists";
     if (/invalid_credentials|invalid.login|invalid.grant/i.test(code)) return "err_login_failed";
     if (/email_not_confirmed|email.not.confirmed/i.test(code)) return "email_confirmation_required";
@@ -170,6 +171,9 @@
 
   async function cancelRequest(id) { return mutationWithList("cancel_request", { p_request_id: id }, "mine"); }
   async function acceptRequest(id) { return mutationWithList("accept_request", { p_request_id: id }, "driver"); }
+  async function respondToOffer(id, accept) {
+    return mutationWithList("respond_to_offer", { p_request_id: id, p_accept: !!accept }, "mine");
+  }
   async function confirmTripDone(id) { return mutationWithList("confirm_trip_done", { p_request_id: id }, "mine"); }
   async function releaseRequest(id) {
     unwrap(await client.rpc("release_request", { p_request_id: id }));
@@ -179,18 +183,29 @@
   async function getDriverStatus() {
     var user = await authUser();
     if (!user) throw new Error("err_login_failed");
-    var row = unwrap(await client.from("driver_profiles").select("user_id,zone_id,approval_status,is_online,online_since,car_brand,seats,fuel_consumption,completed_trips").eq("user_id", user.id).single());
+    var row = unwrap(await client.from("driver_profiles").select("user_id,zone_id,approval_status,is_online,online_since,online_location,car_brand,seats,fuel_consumption,completed_trips").eq("user_id", user.id).single());
     var zone = unwrap(await client.from("zones").select("name").eq("id", row.zone_id).single());
     await getSettings();
-    return Object.assign({}, row, { zone_name: zone.name });
+    return Object.assign({}, row, { zone_name: zone.name,
+      is_online: !!row.is_online && Date.now() - new Date(row.online_since).getTime() < 30 * 60 * 1000 });
   }
 
-  async function setDriverOnline(online) {
-    return unwrap(await client.rpc("set_driver_online", { p_online: !!online }));
+  async function setDriverOnline(online, location) {
+    return unwrap(await client.rpc("set_driver_online", { p_online: !!online, p_location: online ? location : null }));
   }
 
-  async function listOnlineDriversByVillage(villageId) {
-    return unwrap(await client.rpc("list_online_drivers", { p_village_id: villageId })) || [];
+  async function listOnlineDriversByVillage(villageId, location) {
+    return unwrap(await client.rpc("list_online_drivers", { p_village_id: villageId,
+      p_location: location || "village" })) || [];
+  }
+
+  async function onlineDriverCounts(zoneId) {
+    return unwrap(await client.rpc("online_driver_counts", { p_zone_id: zoneId }));
+  }
+
+  async function requestDriverZone(zoneId) {
+    unwrap(await client.rpc("request_driver_zone", { p_zone_id: zoneId }));
+    return getDriverStatus();
   }
 
   function estimateFuelCost(kmToCity, consumption) {
@@ -204,7 +219,7 @@
 
   async function adminListDrivers(filter) {
     var results = await Promise.all([
-      client.from("driver_profiles").select("user_id,zone_id,car_brand,plate,seats,fuel_consumption,approval_status,is_online"),
+      client.from("driver_profiles").select("user_id,zone_id,car_brand,plate,seats,fuel_consumption,approval_status,is_online,online_since,online_location"),
       client.from("users").select("id,name,phone"),
       client.from("zones").select("id,name")
     ]);
@@ -212,7 +227,8 @@
     return profiles.filter(function (d) { return !filter || filter === "all" || d.approval_status === filter; }).map(function (d) {
       var u = users.find(function (item) { return item.id === d.user_id; });
       var z = zones.find(function (item) { return item.id === d.zone_id; });
-      return Object.assign({}, d, { name: u ? u.name : "?", phone: u ? u.phone : "?", zone_name: z ? z.name : null });
+      return Object.assign({}, d, { is_online: !!d.is_online && Date.now() - new Date(d.online_since).getTime() < 30 * 60 * 1000,
+        name: u ? u.name : "?", phone: u ? u.phone : "?", zone_name: z ? z.name : null });
     });
   }
 
@@ -265,11 +281,11 @@
         if (status.approval_status !== "active") throw new Error("df_need_approved");
         return listRequests("feed");
       },
-      acceptRequest: acceptRequest, releaseRequest: releaseRequest,
+      acceptRequest: acceptRequest, respondToOffer: respondToOffer, releaseRequest: releaseRequest,
       confirmTripDone: confirmTripDone, setDriverOnline: setDriverOnline,
-      getDriverStatus: getDriverStatus,
+      getDriverStatus: getDriverStatus, requestDriverZone: requestDriverZone,
       listDriverAcceptedRequests: function () { return listRequests("driver"); },
-      listOnlineDriversByVillage: listOnlineDriversByVillage,
+      listOnlineDriversByVillage: listOnlineDriversByVillage, onlineDriverCounts: onlineDriverCounts,
       estimateFuelCost: estimateFuelCost,
       adminApproveDriver: function (id) { return changeDriverStatus(id, "active", "ad_driver_approved"); },
       adminRejectDriver: function (id) { return changeDriverStatus(id, "rejected", "ad_driver_rejected"); },

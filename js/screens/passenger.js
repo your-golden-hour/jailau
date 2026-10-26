@@ -41,10 +41,10 @@
   }
 
   function statusBadgeKey(status) {
-    return { open: "mr_status_open", accepted: "mr_status_accepted", done: "mr_status_done", cancelled: "mr_status_cancelled" }[status] || "mr_status_open";
+    return { open: "mr_status_open", offered: "mr_status_offered", accepted: "mr_status_accepted", done: "mr_status_done", cancelled: "mr_status_cancelled" }[status] || "mr_status_open";
   }
   function statusBadgeClass(status) {
-    return { open: "badge-open", accepted: "badge-accepted", done: "badge-done", cancelled: "badge-cancelled" }[status] || "badge-open";
+    return { open: "badge-open", offered: "badge-offered", accepted: "badge-accepted", done: "badge-done", cancelled: "badge-cancelled" }[status] || "badge-open";
   }
 
   /* ================= HOME ================= */
@@ -98,14 +98,13 @@
           var box = container.querySelector("#drivers-list");
           if (!box) return;
           box.innerHTML = '<p class="muted">' + esc(t("loading")) + '</p>';
-          API.listOnlineDriversByVillage(vid).then(function (drivers) {
+          Promise.all([API.listOnlineDriversByVillage(vid, "village"),
+            API.listOnlineDriversByVillage(vid, "city")]).then(function (groups) {
             if (!container.querySelector("#drivers-list")) return; // screen changed
-            if (!drivers.length) {
-              box.innerHTML = '<div class="empty-state"><span class="empty-icon">🚕</span>' + esc(t("ph_no_drivers")) + '</div>';
-              return;
-            }
-            box.innerHTML = drivers.map(function (d) {
-              return '' +
+            box.innerHTML = groups.map(function (drivers, index) {
+              return '<h3 class="driver-group-title">' + esc(t(index === 0 ? "ph_online_village" : "ph_online_city")) +
+                ' <span class="muted">' + drivers.length + '</span></h3>' +
+                (drivers.length ? drivers.map(function (d) { return '' +
                 '<div class="card driver-card">' +
                   '<div class="card-row">' +
                     '<div class="driver-identity"><span class="driver-avatar" aria-hidden="true">' + esc(String(d.name || "?").slice(0, 1).toUpperCase()) + '</span><div>' +
@@ -115,7 +114,7 @@
                     '<span class="badge badge-online">● ' + esc(t("driver_online")) + '</span>' +
                   '</div>' +
                   '<div class="driver-since">' + esc(t("ph_driver_since", { time: fmtTimeOnly(d.online_since) })) + '</div>' +
-                '</div>';
+                '</div>'; }).join("") : '<div class="empty-state">' + esc(t("ph_no_drivers")) + '</div>');
             }).join("") + '<p class="small muted">' + esc(t("ph_privacy_note")) + '</p>';
           }).catch(function () {
             if (container.isConnected && box.isConnected) box.innerHTML = '<div class="empty-state">' + esc(t("error_generic")) + '</div>';
@@ -416,6 +415,21 @@
         });
       });
 
+      container.querySelectorAll("[data-offer-response]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var id = btn.getAttribute("data-offer-response");
+          var accept = btn.getAttribute("data-accept") === "true";
+          btn.disabled = true;
+          API.respondToOffer(id, accept).then(function () {
+            window.JAILAU_APP.toast(t(accept ? "mr_offer_accepted" : "mr_offer_declined"), "success");
+            renderMyRequests(container);
+          }).catch(function (err) {
+            btn.disabled = false;
+            window.JAILAU_APP.toast(t(err && err.message || "error_generic"), "error");
+          });
+        });
+      });
+
       container.querySelectorAll("[data-cancel]").forEach(function (btn) {
         btn.addEventListener("click", function () {
           var id = btn.getAttribute("data-cancel");
@@ -454,6 +468,9 @@
     var cancelBtn = r.status === "open"
       ? '<button class="btn btn-danger btn-sm" data-cancel="' + r.id + '">' + esc(t("mr_btn_cancel")) + '</button>'
       : "";
+    var offerBtns = r.status === "offered" ?
+      '<button class="btn btn-primary btn-sm" data-offer-response="' + esc(r.id) + '" data-accept="true">' + esc(t("mr_accept_offer")) + '</button>' +
+      '<button class="btn btn-ghost btn-sm" data-offer-response="' + esc(r.id) + '" data-accept="false">' + esc(t("mr_decline_offer")) + '</button>' : "";
 
     var availableAt = Math.max(new Date(r.accepted_at || 0).getTime(), new Date(r.datetime || r.accepted_at || 0).getTime()) + 3600000;
     var doneBtn = r.status === "accepted" && Date.now() >= availableAt
@@ -479,7 +496,7 @@
         (r.comment ? '<div class="card-meta">💬 ' + esc(r.comment) + '</div>' : "") +
         driverBlock +
         '<div class="card-meta small mt-8">' + esc(t("mr_created_at", { datetime: fmtDateTime(r.created_at) })) + '</div>' +
-        (cancelBtn || doneBtn ? '<div class="btn-group">' + cancelBtn + doneBtn + '</div>' : "") +
+        (cancelBtn || offerBtns || doneBtn ? '<div class="btn-group">' + cancelBtn + offerBtns + doneBtn + '</div>' : "") +
       '</div>';
   }
 

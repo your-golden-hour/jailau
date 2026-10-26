@@ -27,6 +27,7 @@ test('PostgreSQL schema: roles, RLS, contacts, lifecycle and exactly-once counte
       alter default privileges in schema public grant all on tables to anon,authenticated;
       alter default privileges in schema public grant execute on functions to anon,authenticated;`);
     await db.exec(fs.readFileSync('supabase/schema.sql', 'utf8'));
+    await db.exec(fs.readFileSync('supabase/migrations/202610260002_driver_lines_and_offers.sql', 'utf8'));
     await db.query('insert into public.zones(id,name) values ($1,$3),($2,$3)', [id(1),id(2),{ru:'Test zone',kz:'Test zone'}]);
     await db.query(`insert into public.villages(id,zone_id,name,lat,lng,km_to_city)
       values($1,$2,$3,0,0,22),($4,$5,$3,0,0,30)`,[id(11),id(1),{ru:'Test village',kz:'Test village'},id(12),id(2)]);
@@ -42,7 +43,7 @@ test('PostgreSQL schema: roles, RLS, contacts, lifecycle and exactly-once counte
     await db.query("update public.users set role='admin' where id=$1",[id(28)]);
     for (const n of [23,24,25,27]) {
       await as(id(28),"select public.admin_set_driver_status($1,'active')",[id(n)]);
-      await as(id(n),'select public.set_driver_online(true)');
+      await as(id(n),"select public.set_driver_online(true,'village')");
     }
     await assert.rejects(as(id(21),'select public.complete_profile($1,$2,$3)',['+70000000021','Attack','admin']));
     await denied(id(29),'select public.complete_profile($1,$2,$3)',['+70000000029','Overwrite','driver']);
@@ -72,10 +73,14 @@ test('PostgreSQL schema: roles, RLS, contacts, lifecycle and exactly-once counte
     await denied(id(27),'select public.accept_request($1)',[r]); // insufficient seats
     await as(id(23),'select public.set_driver_online(false)');
     await denied(id(23),'select public.accept_request($1)',[r]);
-    await as(id(23),'select public.set_driver_online(true)');
+    await as(id(23),"select public.set_driver_online(true,'village')");
     await denied(id(23),"update public.requests set status='accepted',driver_id=$1 where id=$2",[id(23),r]);
     await as(id(23),'select public.accept_request($1)',[r]);
     await denied(id(24),'select public.accept_request($1)',[r]); // first driver wins
+    assert.equal((await as(id(23),"select public.list_requests('driver') as r"))[0].r.passenger_phone,null);
+    assert.equal((await as(id(21),"select public.list_requests('mine') as r"))[0].r.driver_phone,null);
+    await denied(id(22),'select public.respond_to_offer($1,true)',[r]);
+    await as(id(21),'select public.respond_to_offer($1,true)',[r]);
     assert.equal((await as(id(23),"select public.list_requests('driver') as r"))[0].r.passenger_phone,'+70000000021');
     assert.equal((await as(id(21),"select public.list_requests('mine') as r"))[0].r.driver_phone,'+70000000023');
     assert.equal((await as(id(24),'select * from public.users where id=$1',[id(21)])).length,0);
@@ -87,6 +92,7 @@ test('PostgreSQL schema: roles, RLS, contacts, lifecycle and exactly-once counte
     assert.equal((await as(id(21),"select public.list_requests('mine') as r"))[0].r.driver_phone,null);
     assert.equal((await as(id(23),"select public.list_requests('feed') as r"))[0].r.passenger_phone,null);
     await as(id(24),'select public.accept_request($1)',[r]);
+    await as(id(21),'select public.respond_to_offer($1,true)',[r]);
     await denied(id(21),'select public.confirm_trip_done($1)',[r]);
     await db.query("update public.requests set accepted_at=now()-interval '2 hours' where id=$1",[r]);
     await as(id(21),'select public.confirm_trip_done($1)',[r]);
@@ -96,14 +102,16 @@ test('PostgreSQL schema: roles, RLS, contacts, lifecycle and exactly-once counte
     const r2 = await create(11);
     await as(id(23),'select public.accept_request($1)',[r2]);
     const r3 = await create(11,3);
-    await denied(id(23),'select public.accept_request($1)',[r3]); // 2 + 3 exceeds four seats
+    await assert.rejects(as(id(23),'select public.accept_request($1)',[r3]), {message:'df_no_seats'});
     await as(id(23),'select public.release_request($1)',[r2]);
     await as(id(23),'select public.accept_request($1)',[r3]);
     await as(id(23),'select public.release_request($1)',[r3]);
     await as(id(21),'select public.cancel_request($1)',[r3]);
     await as(id(23),'select public.accept_request($1)',[r2]);
+    await as(id(21),'select public.respond_to_offer($1,true)',[r2]);
     const future = (await as(id(21),`select public.create_request(
       'city_to_village',$1,'Test landmark','scheduled',now()+interval '3 hours',4,null,true,'') as id`,[id(11)]))[0].id;
+    await as(id(23),"select public.set_driver_online(true,'city')");
     await as(id(23),'select public.accept_request($1)',[future]); // later full car fits
     await as(id(23),'select public.release_request($1)',[future]);
     await as(id(21),'select public.cancel_request($1)',[future]);
@@ -121,6 +129,34 @@ test('PostgreSQL schema: roles, RLS, contacts, lifecycle and exactly-once counte
     assert.equal((await as(id(28),'select * from public.driver_profiles')).length,5);
     await denied(id(21),'insert into public.zones(name) values ($1)',[{ru:'Attack',kz:'Attack'}]);
     await denied(id(21),`select public.create_request('village_to_city',$1,'','scheduled',now()-interval '1 hour',2,null,true,'')`,[id(11)]);
+    await denied(id(24),'update public.driver_profiles set zone_id=$1 where user_id=$2',[id(2),id(24)]);
+    const testVillage = await create(11);
+    await db.query("update public.driver_profiles set online_since=now()-interval '31 minutes' where user_id=$1",[id(24)]);
+    assert.equal((await as(id(24),"select public.list_requests('feed')")).length,0);
+    await denied(id(24),'select public.accept_request($1)',[testVillage]);
+    assert.ok(!(await as(id(22),'select * from public.list_online_drivers($1)',[id(11)])).some(x => x.name === 'Driver 24'));
+    await as(id(24),"select public.set_driver_online(true,'village')");
+    assert.equal((await as(id(24),"select public.list_requests('feed')")).length > 0,true);
+    await as(id(24),"select public.set_driver_online(true,'city')");
+    assert.equal((await as(id(24),"select public.list_requests('feed')")).length,0);
+    await denied(id(24),'select public.accept_request($1)',[testVillage]);
+    const cityRequest = (await as(id(21),`select public.create_request(
+      'city_to_village',$1,'Test landmark','asap',null,1,null,true,'') as id`,[id(11)]))[0].id;
+    await as(id(24),'select public.accept_request($1)',[cityRequest]);
+    assert.equal((await as(id(24),"select public.list_requests('driver') as r")).find(x => x.r.id === cityRequest).r.passenger_phone,null);
+    assert.equal((await as(id(21),"select public.list_requests('mine') as r")).find(x => x.r.id === cityRequest).r.driver_phone,null);
+    await as(id(21),'select public.respond_to_offer($1,false)',[cityRequest]);
+    assert.equal((await as(id(21),"select public.list_requests('mine') as r")).find(x => x.r.id === cityRequest).r.status,'open');
+    const counts = (await as(id(24),'select public.online_driver_counts($1) as value',[id(1)]))[0].value;
+    assert.ok(counts.city >= 1 && counts.village >= 1);
+    await as(id(24),'select public.request_driver_zone($1)',[id(2)]);
+    assert.equal((await as(id(24),'select approval_status from public.driver_profiles'))[0].approval_status,'pending');
+    await denied(id(24),"select public.set_driver_online(true,'city')");
+    await denied(id(24),'select public.accept_request($1)',[cityRequest]);
+    assert.equal((await as(id(24),'select * from public.list_online_drivers($1)',[id(11)])).length,0);
+    await as(id(28),"select public.admin_set_driver_status($1,'active')",[id(24)]);
+    await as(id(24),"select public.set_driver_online(true,'city')");
+    assert.equal((await as(id(24),"select public.list_requests('feed')")).length,0);
     console.log('SQL assertions passed: access, role escalation, zone, seats, approval, phones, release, cancel, counter.');
   } finally { await db.close(); }
 });

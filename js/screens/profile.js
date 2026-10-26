@@ -41,6 +41,7 @@
         '<label class="form-label mt-16" for="driver-seats">' + esc(t("nr_seats")) + '</label><select class="form-select" id="driver-seats"><option>1</option><option>2</option><option>3</option><option selected>4</option></select></div>' : '') +
       '<button class="btn btn-primary btn-block mt-16" type="submit">' + esc(t("profile_save")) + '</button></form>' +
       '<p id="profile-message" class="form-hint" role="status"></p></div>' +
+      (editing && user.role === "driver" ? '<div id="driver-zone-card" class="card profile-card"><p class="muted">' + esc(t("loading")) + '</p></div>' : '') +
       (editing ? '<div class="card profile-card"><h2 class="section-title">' + esc(t("profile_password")) + '</h2>' +
         '<form id="password-form"><label class="form-label" for="new-password">' + esc(t("profile_new_password")) + '</label>' +
         '<input class="form-input" id="new-password" type="password" autocomplete="new-password" minlength="8" required>' +
@@ -100,6 +101,41 @@
       }).catch(function (err) { status.textContent = msg(err); }).finally(function () { button.disabled = false; });
     });
     if (editing) {
+      if (user.role === "driver") {
+        Promise.all([API.getDriverStatus(), API.listZonesAndVillages()]).then(function (result) {
+          var card = container.querySelector("#driver-zone-card");
+          if (!card) return;
+          var driver = result[0], zones = result[1];
+          card.innerHTML = '<h2 class="section-title">' + esc(t("profile_driver_zone")) + '</h2>' +
+            '<p class="form-hint">' + esc(t("profile_zone_reapproval")) + '</p>' +
+            '<form id="driver-zone-form"><label class="form-label" for="profile-zone">' + esc(t("df_zone_label")) + '</label>' +
+            '<select class="form-select" id="profile-zone">' + zones.map(function (zone) {
+              return '<option value="' + esc(zone.id) + '"' + (zone.id === driver.zone_id ? ' selected' : '') + '>' +
+                esc(window.I18N.localizedName(zone.name)) + '</option>';
+            }).join("") + '</select>' +
+            '<button type="submit" class="btn btn-secondary btn-block mt-16">' + esc(t("profile_request_zone")) + '</button></form>' +
+            '<p id="zone-message" class="form-hint" role="status">' +
+              esc(driver.approval_status === "pending" ? t("profile_zone_pending") : "") + '</p>';
+          card.querySelector("#driver-zone-form").addEventListener("submit", function (event) {
+            event.preventDefault();
+            var nextZone = card.querySelector("#profile-zone").value;
+            if (nextZone === driver.zone_id) return;
+            if (!window.confirm(t("profile_zone_confirm"))) return;
+            var button = event.target.querySelector('button[type="submit"]');
+            button.disabled = true;
+            API.requestDriverZone(nextZone).then(function (updated) {
+              driver = updated;
+              card.querySelector("#zone-message").textContent = t("profile_zone_pending");
+              window.JAILAU_APP.toast(t("profile_zone_pending"), "success");
+            }).catch(function (err) {
+              card.querySelector("#zone-message").textContent = msg(err);
+            }).finally(function () { button.disabled = false; });
+          });
+        }).catch(function () {
+          var card = container.querySelector("#driver-zone-card");
+          if (card) card.textContent = t("error_generic");
+        });
+      }
       container.querySelector("#password-form").addEventListener("submit", function (event) {
         event.preventDefault();
         var password = event.target.querySelector("#new-password").value;

@@ -5,6 +5,31 @@ Repository: https://github.com/your-golden-hour/jailau. Current review branch:
 `codex/website-rebuild`, PR #4. `release`/Cloudflare must not be changed before
 the owner's explicit approval.
 
+## Current change in progress (not yet live)
+
+- `202610260002_driver_lines_and_offers.sql` is written and passes local PGlite
+  tests, but **has not been applied to Supabase**. The connector's automatic
+  approval review hit its usage limit on 2026-10-26. Do not claim that the new
+  line/offer features work in the cloud until the migration is applied and
+  verified. The local review branch may show an update-required message meanwhile.
+- New workflow: driver sends an offer; only the passenger accepts or declines.
+  Contact phones remain hidden until the passenger accepts. Offered/accepted
+  seats count against the same two-hour capacity window. The seat-limit error
+  now explains that there is not enough room in the car.
+- Driver lines have separate village and Shymkent modes. They expire after
+  30 minutes, enforced on feed, acceptance, online counts and listings. A driver
+  changing district is taken offline and returns to pending admin approval;
+  outstanding offers are reopened, accepted rides remain assigned.
+- Passenger home groups online drivers by village/city. Driver feed displays
+  counts by mode. Screens use a dark steppe palette and locally bundled Manrope
+  with the original illustrated city/yurt icons. The official Manrope binary
+  lacks several Kazakh glyphs, so the CSS stack falls back to device Noto Sans
+  or system sans for those letters; the RU/KZ browser preview rendered them.
+  Full low-end Android glyph QA remains to do. No new paid service.
+- Local suite: 17 tests pass, including offer privacy/decline, line expiry,
+  mode filtering, seat error, district reapproval, and bilingual UI. Live
+  migration/real-browser flow still require follow-up.
+
 ## Implemented in the review branch
 
 - Static bilingual Russian/Kazakh website with Supabase-only browser backend.
@@ -23,7 +48,7 @@ the owner's explicit approval.
   form and driver feed already handle both directions; cards simplified.
 - Admin driver actions now read the matching `data-*` ID attribute before
   calling the status RPC, so approve/reject/block/unblock target the selected
-  driver. The PWA shell cache was bumped to v8 for this update.
+  driver. The current PWA shell cache is v10, including the local font.
 - Database migration `supabase/migrations/202610260001_email_profile_capacity.sql`
   applied to cloud project `ubjcvqqxkgshguiwikqu`. Phone is unique contact data,
   not Auth identity. Old phone-based `complete_profile` signature has no client
@@ -45,9 +70,9 @@ the owner's explicit approval.
   their number. Calls/contact are only available after request acceptance.
 - Two-hour occupancy is a provisional journey window; tune against verified
   route times before wider use. The one-hour completion floor is server-enforced.
-- Supabase has an admin account, one synthetic test driver awaiting approval,
-  and one configured zone/village. No pilot rides or passenger accounts have
-  been reported. Keep the test driver pending until explicitly approved.
+- Supabase has a test admin, an active synthetic driver and one configured
+  zone/village. The database contains test requests, including accepted ones.
+  Preserve these while migrating; do not import fake geography.
 - Supabase Site URL is `http://localhost:3000` with no extra redirect URLs.
   A real email Magic Link/password setup walkthrough is still pending. Production URL must be
   allowlisted only after owner-approved deployment. OAuth needs owner setup.
@@ -57,10 +82,12 @@ the owner's explicit approval.
 
 ## Next checks
 
-1. Owner serves the site at `http://localhost:3000/`, creates a disposable email
-   test account, and confirms email. Verify profile flow and phone correction.
-2. Verify geography and create zones/villages, then admin approval of a test driver.
-3. Test two concurrent acceptances against live cloud, scheduling boundaries,
+1. Apply `202610260002_driver_lines_and_offers.sql` through the Supabase
+   connector when approval access returns, or have the owner apply the exact
+   file in Supabase SQL Editor. Then verify columns/functions and test data.
+2. Check village/city modes, offer accept/decline, district reapproval, and
+   live 30-minute expiry with disposable accounts.
+3. Test two concurrent offers against live cloud, scheduling boundaries,
    completion at one hour, mobile slow-network behavior, and app installability.
 4. Review PR #4, then ask owner before promoting to protected `release` and
    publishing Cloudflare Pages. Disable preview deploys for unreviewed branches.

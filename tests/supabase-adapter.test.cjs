@@ -63,7 +63,12 @@ test('real adapter uses Supabase Auth and atomic RPC, never mock request mutatio
         rpc: async (name, args) => {
           calls.push(['rpc', name, args]);
           if (name === 'accept_request') return {data: 'request-1', error: null};
-          if (name === 'list_requests') return {data: [{id: 'request-1', status: 'accepted', passenger_phone: '+70000000001'}], error: null};
+          if (name === 'respond_to_offer') return {data: 'request-1', error: null};
+          if (name === 'set_driver_online') return {data: {is_online:true,online_location:args.p_location},error:null};
+          if (name === 'online_driver_counts') return {data: {village:1,city:2},error:null};
+          if (name === 'list_requests') return {data: [args.p_kind === 'driver'
+            ? {id:'request-1',status:'offered',passenger_phone:null}
+            : {id:'request-1',status:'accepted',driver_phone:'+70000000002'}], error: null};
           throw new Error(`Unexpected RPC: ${name}`);
         }
       };
@@ -81,7 +86,14 @@ test('real adapter uses Supabase Auth and atomic RPC, never mock request mutatio
     assert.equal(otp[1].options.shouldCreateUser,true);
     assert.equal('password' in otp[1],false);
     const request = await w.JAILAU_API.acceptRequest('request-1');
-    assert.equal(request.status, 'accepted');
+    assert.equal(request.status, 'offered');
+    assert.equal(request.passenger_phone,null);
+    const agreed = await w.JAILAU_API.respondToOffer('request-1',true);
+    assert.equal(agreed.status,'accepted');
+    assert.ok(calls.some(row => row[0] === 'rpc' && row[1] === 'respond_to_offer' && row[2].p_accept === true));
+    const line = await w.JAILAU_API.setDriverOnline(true,'city');
+    assert.equal(line.online_location,'city');
+    assert.deepEqual(await w.JAILAU_API.onlineDriverCounts('zone-1'),{village:1,city:2});
     assert.ok(calls.some(row => row[0] === 'rpc' && row[1] === 'accept_request' && row[2].p_request_id === 'request-1'));
     assert.ok(calls.some(row => row[0] === 'rpc' && row[1] === 'list_requests' && row[2].p_kind === 'driver'));
     assert.ok(!calls.some(row => row[0] === 'from' && row[1] === 'requests'));
